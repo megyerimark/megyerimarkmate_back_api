@@ -17,7 +17,7 @@ class AdminAuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        if (! Auth::attempt([
+        if (! Auth::guard('web')->attempt([
             'email' => $data['email'],
             'password' => $data['password'],
             'is_admin' => true,
@@ -32,13 +32,27 @@ class AdminAuthController extends Controller
         ]);
     }
 
-    public function logout(Request $request): JsonResponse
+/*     public function logout(Request $request): JsonResponse
     {
-        Auth::logout();
-        $request->session()->invalidate();
+        Auth::logout();  
+Auth::guard('web')->logout();
+$request->session()->invalidate();
         $request->session()->regenerateToken();
         return response()->json(['message' => 'Sikeres kijelentkezés.']);
-    }
+    } */
+public function logout(Request $request): JsonResponse
+{
+    Auth::guard('web')->logout();
+
+    $request->session()->invalidate();
+    $request->session()->regenerateToken();
+
+    Auth::guard('sanctum')->forgetUser();
+
+    return response()->json([
+        'message' => 'Sikeres kijelentkezés.'
+    ]);
+}
 
     public function changePassword(Request $request): JsonResponse
     {
