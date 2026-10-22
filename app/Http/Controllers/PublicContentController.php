@@ -17,7 +17,7 @@ class PublicContentController extends Controller
 
     public function projects(): JsonResponse
     {
-        return response()->json(['data' => PortfolioProject::where('is_published', true)
+        return response()->json(['data' => PortfolioProject::where('is_published', true)->where('is_demo', false)
             ->orderByDesc('is_featured')->orderBy('sort_order')->orderByDesc('id')->get()]);
     }
 

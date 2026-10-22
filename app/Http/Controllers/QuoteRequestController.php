@@ -8,6 +8,7 @@ use App\Mail\NewQuoteNotification;
 use App\Models\QuoteRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Mail;
 
 class QuoteRequestController extends Controller
@@ -17,22 +18,28 @@ class QuoteRequestController extends Controller
         $data = $request->safe()->except(['website', 'privacy_notice_acknowledged']);
         $quote = new QuoteRequest($data);
         $quote->privacy_notice_acknowledged_at = now();
+        // The public receipt exposes only a numeric reference; the access secret travels by email.
+        $portalToken = bin2hex(random_bytes(32));
+        $quote->portal_token_hash = hash('sha256', $portalToken);
+        $quote->portal_token_encrypted = Crypt::encryptString($portalToken);
         $quote->save();
 
-        if (config('portfolio.mail_enabled')) {
-            try {
-                if ($owner = config('portfolio.admin_email')) {
+        // Never put portal access secrets in the log / array mail transports.
+        if (config('portfolio.mail_enabled') && ! in_array(config('mail.default'), ['log', 'array', 'null'], true)) {
+            if ($owner = config('portfolio.admin_email')) {
+                try {
                     Mail::to($owner)->send(new NewQuoteNotification($quote));
+                } catch (\Throwable $exception) {
+                    Log::error('Owner quote notification failed', ['quote_id' => $quote->id, 'exception_type' => $exception::class]);
                 }
-                if (config('portfolio.customer_receipt_enabled')) {
-                    Mail::to($quote->email)->send(new CustomerQuoteConfirmation($quote));
+            }
+            if (config('portfolio.customer_receipt_enabled')) {
+                try {
+                    Mail::to($quote->email)->send(new CustomerQuoteConfirmation($quote, config('portfolio.frontend_url').'/ugyfel/projekt#'.$portalToken));
+                } catch (\Throwable $exception) {
+                    // A request already stored must not be submitted again because SMTP failed.
+                    Log::error('Customer quote receipt failed', ['quote_id' => $quote->id, 'exception_type' => $exception::class]);
                 }
-            } catch (\Throwable $exception) {
-                // The enquiry is already saved: SMTP failure must not create a duplicate submission.
-                Log::error('Quote notification delivery failed', [
-                    'quote_id' => $quote->id,
-                    'exception_type' => $exception::class,
-                ]);
             }
         }
 

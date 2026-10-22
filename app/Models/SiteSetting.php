@@ -14,8 +14,8 @@ class SiteSetting extends Model
 
     public const DEFAULTS = [
         'site_title' => 'Megyeri Márk | Webfejlesztés',
-        'hero_headline' => 'Prémium weboldalak, amelyek nemcsak szépek.',
-        'hero_description' => 'Egyedi, modern weboldalak vállalkozásoknak.',
+        'hero_headline' => 'Ne csak jelen legyél online. Emelkedj ki.',
+        'hero_description' => 'Egyedi weboldalakat és prémium digitális megoldásokat készítek vállalkozásoknak – hogy a megjelenésed bizalmat építsen, és támogassa az ügyfélszerzést.',
         'contact_email' => '',
         'contact_phone' => '',
         'instagram_url' => '',

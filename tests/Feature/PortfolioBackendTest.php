@@ -4,6 +4,9 @@ namespace Tests\Feature;
 
 use App\Mail\CustomerQuoteConfirmation;
 use App\Mail\NewQuoteNotification;
+use App\Mail\ProposalReady;
+use App\Models\ProjectMilestone;
+use App\Models\ConsultationSlot;
 use App\Models\PortfolioProject;
 use App\Models\QuoteRequest;
 use App\Models\Service;
@@ -68,6 +71,7 @@ class PortfolioBackendTest extends TestCase
     {
         Mail::fake();
         config()->set('portfolio.mail_enabled', true);
+        config()->set('mail.default', 'smtp');
         config()->set('portfolio.admin_email', 'owner@example.com');
         config()->set('portfolio.customer_receipt_enabled', true);
         $this->postJson('/api/quote-requests', $this->sampleQuote())->assertCreated();
@@ -108,11 +112,202 @@ class PortfolioBackendTest extends TestCase
         $admin = $this->admin();
         $quote = QuoteRequest::create($this->sampleQuoteForModel());
         $this->actingAs($admin)->patchJson('/api/admin/quote-requests/'.$quote->id, [
-            'status' => 'quoted', 'quoted_price_huf' => 199000, 'admin_notes' => 'Felhívni',
-        ])->assertOk()->assertJsonPath('data.status', 'quoted');
+            'status' => 'reviewing', 'quoted_price_huf' => 199000, 'admin_notes' => 'Felhívni',
+        ])->assertOk()->assertJsonPath('data.status', 'reviewing');
         $this->assertDatabaseHas('quote_requests', ['id' => $quote->id, 'quoted_price_huf' => 199000]);
         $this->actingAs($admin)->deleteJson('/api/admin/quote-requests/'.$quote->id)->assertOk();
         $this->assertDatabaseMissing('quote_requests', ['id' => $quote->id]);
+    }
+
+
+    public function test_portal_token_is_private_and_an_unauthorized_user_cannot_see_project_details(): void
+    {
+        Mail::fake();
+        config()->set('portfolio.mail_enabled', true);
+        config()->set('mail.default', 'smtp');
+        config()->set('portfolio.admin_email', 'owner@example.com');
+        config()->set('portfolio.customer_receipt_enabled', true);
+        $this->postJson('/api/quote-requests', $this->sampleQuote())->assertCreated()->assertJsonMissing(['portal_token_hash']);
+        $token = null;
+        Mail::assertSent(CustomerQuoteConfirmation::class, function (CustomerQuoteConfirmation $mail) use (&$token) {
+            $token = parse_url($mail->portalUrl, PHP_URL_FRAGMENT);
+            return is_string($token) && strlen($token) === 64;
+        });
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $token);
+        $this->postJson('/api/client/project', ['token' => str_repeat('a', 64)])->assertNotFound();
+        $this->postJson('/api/client/project', ['token' => $token])->assertOk()
+            ->assertJsonPath('data.status', 'new')
+            ->assertJsonPath('data.quoted_price_huf', null)
+            ->assertJsonCount(0, 'data.milestones');
+        $this->postJson('/api/client/project/accept', ['token' => $token, 'accept_terms' => true])->assertUnprocessable();
+    }
+
+    public function test_quoted_status_requires_real_proposal_send_and_acceptance_is_one_time(): void
+    {
+        Mail::fake();
+        config()->set('portfolio.mail_enabled', true);
+        config()->set('mail.default', 'smtp');
+        config()->set('portfolio.admin_email', 'owner@example.com');
+        config()->set('mail.default', 'smtp');
+        $quote = QuoteRequest::create($this->sampleQuoteForModel());
+        $admin = $this->admin();
+        $this->actingAs($admin)->patchJson('/api/admin/quote-requests/'.$quote->id, ['status' => 'quoted'])
+            ->assertUnprocessable();
+        $this->actingAs($admin)->patchJson('/api/admin/quote-requests/'.$quote->id, [
+            'quoted_price_huf' => 325000,
+            'proposal_summary' => 'Egyedi céges weboldal, öt aloldal, átadás és két kör módosítás.',
+            'proposal_valid_until' => now()->addDays(14)->toDateString(),
+        ])->assertOk();
+        $this->actingAs($admin)->postJson('/api/admin/quote-requests/'.$quote->id.'/send-proposal')
+            ->assertOk()->assertJsonPath('data.status', 'quoted');
+        $token = null;
+        Mail::assertSent(ProposalReady::class, function (ProposalReady $mail) use (&$token) {
+            $token = parse_url($mail->portalUrl, PHP_URL_FRAGMENT);
+            return is_string($token) && strlen($token) === 64;
+        });
+        $this->postJson('/api/client/project', ['token' => $token])
+            ->assertOk()->assertJsonPath('data.quoted_price_huf', 325000);
+        $this->postJson('/api/client/project/accept', ['token' => $token, 'accept_terms' => false])->assertUnprocessable();
+        $this->postJson('/api/client/project/accept', ['token' => $token, 'accept_terms' => true])
+            ->assertOk()->assertJsonPath('data.status', 'accepted');
+        $this->postJson('/api/client/project/accept', ['token' => $token, 'accept_terms' => true])
+            ->assertOk()->assertJsonPath('data.status', 'accepted');
+        $this->assertDatabaseHas('quote_requests', ['id' => $quote->id, 'status' => 'accepted']);
+        $this->actingAs($admin)->patchJson('/api/admin/quote-requests/'.$quote->id, [
+            'status' => 'completed',
+        ])->assertOk();
+    }
+
+    public function test_fake_mail_transport_does_not_mark_a_proposal_sent(): void
+    {
+        $quote = QuoteRequest::create($this->sampleQuoteForModel());
+        $quote->quoted_price_huf = 250000;
+        $quote->proposal_summary = 'Egyedi tervezés és fejlesztés pontos részletekkel.';
+        $quote->proposal_valid_until = now()->addDays(10);
+        $quote->save();
+        config()->set('portfolio.mail_enabled', true);
+        config()->set('mail.default', 'log');
+        $this->actingAs($this->admin())->postJson('/api/admin/quote-requests/'.$quote->id.'/send-proposal')
+            ->assertStatus(503);
+        $this->assertNull($quote->fresh()->quoted_at);
+    }
+
+    public function test_milestones_are_private_to_their_enquiry_and_visible_only_after_acceptance(): void
+    {
+        $admin = $this->admin();
+        $first = QuoteRequest::create($this->sampleQuoteForModel());
+        $second = QuoteRequest::create(array_merge($this->sampleQuoteForModel(), ['email' => 'mas@example.com']));
+        $created = $this->actingAs($admin)->postJson('/api/admin/quote-requests/'.$first->id.'/milestones', [
+            'title' => 'Arculattervezés', 'status' => 'in_progress',
+        ])->assertCreated();
+        $id = $created->json('data.id');
+        $this->actingAs($admin)->patchJson('/api/admin/quote-requests/'.$second->id.'/milestones/'.$id, [
+            'status' => 'done',
+        ])->assertNotFound();
+        $this->actingAs($admin)->patchJson('/api/admin/quote-requests/'.$first->id.'/milestones/'.$id, [
+            'status' => 'done',
+        ])->assertOk();
+        $this->assertDatabaseHas('project_milestones', ['id' => $id, 'status' => 'done']);
+    }
+
+
+    public function test_consultation_slot_can_be_booked_once_and_admin_sees_customer(): void
+    {
+        config()->set('portfolio.mail_enabled', false);
+        $admin = $this->admin();
+        $slot = $this->actingAs($admin)->postJson('/api/admin/consultations', [
+            'starts_at' => now()->addDays(3)->toIso8601String(),
+            'duration_minutes' => 30,
+        ])->assertCreated()->json('data');
+        $this->getJson('/api/consultations/available')->assertOk()->assertJsonCount(1, 'data');
+        $booking = [
+            'consultation_slot_id' => $slot['id'], 'customer_name' => 'Teszt Ügyfél',
+            'email' => 'booking@example.com', 'privacy_notice_acknowledged' => true,
+        ];
+        $this->postJson('/api/consultations/book', $booking)->assertCreated();
+        $this->postJson('/api/consultations/book', $booking)->assertUnprocessable();
+        $this->getJson('/api/consultations/available')->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson('/api/admin/consultations')->assertOk()->assertJsonPath('data.0.booking.email', 'booking@example.com');
+        $this->deleteJson('/api/admin/consultations/'.$slot['id'])->assertUnprocessable();
+    }
+
+    public function test_consultation_slots_are_admin_only_and_honeypot_blocks_spam(): void
+    {
+        $this->postJson('/api/admin/consultations', [
+            'starts_at' => now()->addDays(2)->toIso8601String(), 'duration_minutes' => 30,
+        ])->assertUnauthorized();
+        $slot = ConsultationSlot::create(['starts_at' => now()->addDays(2), 'duration_minutes' => 45]);
+        $this->postJson('/api/consultations/book', [
+            'consultation_slot_id' => $slot->id, 'customer_name' => 'Bad Bot',
+            'email' => 'bot@example.com', 'website' => 'https://spam.example',
+            'privacy_notice_acknowledged' => true,
+        ])->assertUnprocessable();
+        $this->assertDatabaseCount('consultation_bookings', 0);
+    }
+
+    public function test_private_project_messages_and_documents_cannot_be_read_by_another_client(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('local');
+        $admin = $this->admin();
+        $quoteA = QuoteRequest::create($this->sampleQuoteForModel());
+        $quoteB = QuoteRequest::create(array_merge($this->sampleQuoteForModel(), ['email' => 'masodik@example.com']));
+        $tokenA = bin2hex(random_bytes(32));
+        $tokenB = bin2hex(random_bytes(32));
+        $quoteA->portal_token_hash = hash('sha256', $tokenA);
+        $quoteA->save();
+        $quoteB->portal_token_hash = hash('sha256', $tokenB);
+        $quoteB->save();
+        $this->postJson('/api/client/project/messages', ['token' => $tokenA, 'body' => 'Kérdésem van az oldaltervről.'])->assertCreated();
+        $this->postJson('/api/client/project/collaboration', ['token' => $tokenB])
+            ->assertOk()->assertJsonCount(0, 'data.messages');
+        $this->actingAs($admin)->postJson('/api/admin/quote-requests/'.$quoteA->id.'/messages', [
+            'body' => 'Elküldöm a friss látványtervet.'
+        ])->assertCreated();
+        $this->postJson('/api/client/project/collaboration', ['token' => $tokenA])
+            ->assertOk()->assertJsonCount(2, 'data.messages');
+        $upload = $this->actingAs($admin)->post('/api/admin/quote-requests/'.$quoteA->id.'/documents', [
+            'title' => 'Tervezési dokumentum', 'file' => UploadedFile::fake()->create('terv.pdf', 40, 'application/pdf'),
+        ], ['Accept' => 'application/json'])->assertCreated();
+        $id = $upload->json('data.id');
+        $this->assertArrayNotHasKey('storage_path', $upload->json('data'));
+        $this->postJson('/api/client/project/documents/'.$id.'/download', ['token' => $tokenB])->assertNotFound();
+        $this->post('/api/client/project/documents/'.$id.'/download', ['token' => $tokenA])->assertOk();
+        $this->getJson('/api/admin/quote-requests/'.$quoteA->id.'/collaboration')->assertOk();
+        $this->actingAs(User::factory()->create())->getJson('/api/admin/quote-requests/'.$quoteA->id.'/collaboration')->assertForbidden();
+    }
+
+    public function test_admin_can_never_publish_a_demo_and_cannot_overlap_consultation_slots(): void
+    {
+        $admin = $this->admin();
+        $this->actingAs($admin)->postJson('/api/admin/projects', [
+            'title' => 'Privát demó', 'summary' => 'Nem publikus', 'is_demo' => true, 'is_published' => true,
+        ])->assertUnprocessable();
+        $date = now()->addDays(5)->startOfHour();
+        $this->actingAs($admin)->postJson('/api/admin/consultations', [
+            'starts_at' => $date->toIso8601String(), 'duration_minutes' => 60,
+        ])->assertCreated();
+        $this->actingAs($admin)->postJson('/api/admin/consultations', [
+            'starts_at' => $date->copy()->addMinutes(30)->toIso8601String(), 'duration_minutes' => 30,
+        ])->assertUnprocessable();
+        $this->actingAs($admin)->postJson('/api/admin/consultations', [
+            'starts_at' => $date->copy()->addMinutes(60)->toIso8601String(), 'duration_minutes' => 30,
+        ])->assertCreated();
+    }
+
+    public function test_admin_can_revoke_an_old_private_link_by_sending_a_new_one(): void
+    {
+        Mail::fake();
+        config()->set('portfolio.mail_enabled', true);
+        config()->set('mail.default', 'smtp');
+        $admin = $this->admin();
+        $quote = QuoteRequest::create($this->sampleQuoteForModel());
+        $oldToken = bin2hex(random_bytes(32));
+        $quote->portal_token_hash = hash('sha256', $oldToken);
+        $quote->save();
+        $this->postJson('/api/client/project', ['token' => $oldToken])->assertOk();
+        $this->actingAs($admin)->postJson('/api/admin/quote-requests/'.$quote->id.'/rotate-client-access')->assertOk();
+        $this->postJson('/api/client/project', ['token' => $oldToken])->assertNotFound();
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\ProjectAccessRenewed::class, 1);
     }
 
     private function sampleQuoteForModel(): array
@@ -125,10 +320,12 @@ class PortfolioBackendTest extends TestCase
         Service::create(['slug'=>'hidden','title'=>'Hidden','summary'=>'Hidden service']);
         Service::create(['slug'=>'live','title'=>'Live','summary'=>'Live service','is_active'=>true]);
         PortfolioProject::create(['slug'=>'draft','title'=>'Draft','summary'=>'Draft project']);
-        PortfolioProject::create(['slug'=>'published','title'=>'Published','summary'=>'Published project','is_published'=>true]);
+        PortfolioProject::create(['slug'=>'published','title'=>'Published','summary'=>'Published project','is_demo'=>false,'is_published'=>true]);
+        PortfolioProject::create(['slug'=>'demo-hidden','title'=>'Demo','summary'=>'Never shown','is_demo'=>true,'is_published'=>true]);
         $this->getJson('/api/services')->assertOk()->assertJsonCount(1, 'data');
         $this->getJson('/api/projects')->assertOk()->assertJsonCount(1, 'data');
         $this->getJson('/api/projects/draft')->assertNotFound();
+        $this->getJson('/api/projects/demo-hidden')->assertNotFound();
         $this->getJson('/api/projects/published')->assertOk();
     }
 
@@ -141,7 +338,7 @@ class PortfolioBackendTest extends TestCase
         $file = new UploadedFile($temp, 'demo.png', 'image/png', null, true);
         $result = $this->actingAs($admin)->post('/api/admin/projects', [
             'title' => 'Minta Projekt', 'summary' => 'Éttermi bemutatkozó oldal',
-            'is_demo' => true, 'is_published' => true, 'cover_image' => $file,
+            'is_demo' => false, 'is_published' => true, 'cover_image' => $file,
         ], ['Accept' => 'application/json']);
         $result->assertCreated();
         $project = PortfolioProject::firstOrFail();

@@ -13,7 +13,7 @@ class CustomerQuoteConfirmation extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public QuoteRequest $quote) {}
+    public function __construct(public QuoteRequest $quote, public string $portalUrl) {}
 
     public function envelope(): Envelope
     {

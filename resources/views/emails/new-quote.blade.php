@@ -6,6 +6,9 @@
 <p><strong>Érdeklődő:</strong> {{ $quote->customer_name }} ({{ $quote->email }})</p>
 <p><strong>Vállalkozás:</strong> {{ $quote->company_name ?: 'Nincs megadva' }}</p>
 <p><strong>Weboldaltípus:</strong> {{ $quote->website_type }}</p>
+@if($quote->industry)<p><strong>Iparág:</strong> {{ $quote->industry }}</p>@endif
+@if($quote->layout_style)<p><strong>Elrendezés:</strong> {{ $quote->layout_style }}</p>@endif
+@if($quote->font_style)<p><strong>Betűvilág:</strong> {{ $quote->font_style }}</p>@endif
 <p><strong>Költségkeret:</strong> {{ $quote->budget_range ?: 'Nincs megadva' }}</p>
 <p><strong>Projektleírás:</strong></p>
 <p style="white-space:pre-wrap">{{ $quote->project_description }}</p>

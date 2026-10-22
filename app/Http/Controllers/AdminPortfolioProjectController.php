@@ -21,6 +21,9 @@ class AdminPortfolioProjectController extends Controller
     {
         $data = $request->validated();
         unset($data['cover_image'], $data['remove_cover_image']);
+        if (! empty($data['is_demo']) && ! empty($data['is_published'])) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['is_published' => 'Demómunka nem tehető nyilvánossá.']);
+        }
         $data['slug'] = UniqueSlug::for($data['title'], PortfolioProject::class);
         $project = new PortfolioProject($data);
         if ($request->hasFile('cover_image')) {
@@ -47,6 +50,9 @@ class AdminPortfolioProjectController extends Controller
     {
         $data = $request->validated();
         unset($data['cover_image'], $data['remove_cover_image']);
+        if (($data['is_demo'] ?? $project->is_demo) && ($data['is_published'] ?? $project->is_published)) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['is_published' => 'Demómunka nem tehető nyilvánossá.']);
+        }
         if (isset($data['title']) && $data['title'] !== $project->title) {
             $data['slug'] = UniqueSlug::for($data['title'], PortfolioProject::class, $project->id);
         }
