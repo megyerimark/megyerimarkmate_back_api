@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminAuthController;
+use App\Http\Controllers\AdminPasswordResetController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => response()->json([
@@ -9,3 +10,6 @@ Route::get('/', fn () => response()->json([
 ]));
 Route::post('/admin/login', [AdminAuthController::class, 'login'])->middleware('throttle:5,1');
 Route::post('/admin/logout', [AdminAuthController::class, 'logout'])->middleware('auth');
+
+Route::post('/admin/forgot-password', [AdminPasswordResetController::class, 'requestLink'])->middleware('throttle:3,1');
+Route::post('/admin/reset-password', [AdminPasswordResetController::class, 'reset'])->middleware('throttle:5,1');

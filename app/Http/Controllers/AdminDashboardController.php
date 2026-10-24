@@ -24,6 +24,13 @@ class AdminDashboardController extends Controller
             'portfolio_total' => PortfolioProject::count(),
             'services_total' => Service::count(),
             'recent_quotes' => QuoteRequest::latest()->limit(5)->get(),
+            'quotes_monthly' => collect(range(5, 0))->map(function ($offset) {
+                $month = now()->startOfMonth()->subMonths($offset);
+                return [
+                    'label' => $month->translatedFormat('M'),
+                    'count' => QuoteRequest::whereBetween('created_at', [$month->copy()->startOfMonth(), $month->copy()->endOfMonth()])->count(),
+                ];
+            })->values(),
         ]]);
     }
 
