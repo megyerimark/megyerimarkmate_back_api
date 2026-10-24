@@ -22,6 +22,7 @@ class QuoteRequestController extends Controller
         $portalToken = bin2hex(random_bytes(32));
         $quote->portal_token_hash = hash('sha256', $portalToken);
         $quote->portal_token_encrypted = Crypt::encryptString($portalToken);
+        $quote->portal_token_expires_at = now()->addDays(config('portfolio.client_access_days'));
         $quote->save();
 
         // Never put portal access secrets in the log / array mail transports.

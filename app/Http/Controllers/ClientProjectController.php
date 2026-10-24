@@ -17,7 +17,9 @@ class ClientProjectController extends Controller
         if (! preg_match('/\A[a-f0-9]{64}\z/D', $token)) {
             abort(404);
         }
-        return QuoteRequest::where('portal_token_hash', hash('sha256', $token))->firstOrFail();
+        return QuoteRequest::where('portal_token_hash', hash('sha256', $token))
+            ->where('portal_token_expires_at', '>', now())
+            ->firstOrFail();
     }
 
     private function publicData(QuoteRequest $quote): array
@@ -40,6 +42,7 @@ class ClientProjectController extends Controller
             'proposal_terms' => $quote->quoted_at ? $quote->proposal_terms : null,
             'proposal_valid_until' => $quote->quoted_at ? $quote->proposal_valid_until : null,
             'proposal_accepted_at' => $quote->proposal_accepted_at,
+            'access_expires_at' => $quote->portal_token_expires_at,
             'milestones' => in_array($quote->status, ['accepted', 'completed'], true)
                 ? $quote->milestones()->get(['id', 'title', 'description', 'status', 'due_date', 'sort_order'])->toArray()
                 : [],

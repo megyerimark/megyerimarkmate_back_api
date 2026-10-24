@@ -16,7 +16,9 @@ class ProjectCollaborationController extends Controller
     private function clientQuote(Request $request): QuoteRequest
     {
         $data = $request->validate(['token' => ['required', 'string', 'regex:/\A[a-f0-9]{64}\z/D']]);
-        return QuoteRequest::where('portal_token_hash', hash('sha256', $data['token']))->firstOrFail();
+        return QuoteRequest::where('portal_token_hash', hash('sha256', $data['token']))
+            ->where('portal_token_expires_at', '>', now())
+            ->firstOrFail();
     }
 
     private function records(QuoteRequest $quote): array

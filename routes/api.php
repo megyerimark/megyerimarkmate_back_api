@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminDashboardController;
+use App\Http\Controllers\AdminSecurityController;
+use App\Http\Controllers\AdminWorkspaceController;
 use App\Http\Controllers\AdminMilestoneController;
 use App\Http\Controllers\AdminPortfolioProjectController;
 use App\Http\Controllers\AdminQuoteRequestController;
@@ -33,12 +35,26 @@ Route::post('/client/project/documents/{document}/download', [ProjectCollaborati
 Route::get('/consultations/available', [ConsultationController::class, 'available'])->middleware('throttle:40,1');
 Route::post('/consultations/book', [ConsultationController::class, 'book'])->middleware('throttle:5,1');
 
-Route::middleware(['auth:sanctum', 'can:access-admin'])->prefix('admin')->group(function () {
+Route::middleware(['auth:sanctum', 'can:access-admin', 'admin.2fa'])->prefix('admin')->group(function () {
     Route::get('/me', fn (Request $request) => response()->json([
         'data' => $request->user()->only(['id', 'name', 'email']),
     ]));
     Route::put('/password', [AdminAuthController::class, 'changePassword'])->middleware('throttle:5,1');
+    Route::get('/security', [AdminSecurityController::class, 'status']);
+    Route::put('/security/two-factor', [AdminSecurityController::class, 'setTwoFactor'])->middleware('throttle:5,1');
+    Route::get('/security/sessions', [AdminSecurityController::class, 'sessions']);
+    Route::delete('/security/sessions/others', [AdminSecurityController::class, 'revokeOtherSessions'])->middleware('throttle:5,1');
     Route::get('/dashboard', [AdminDashboardController::class, 'index']);
+    Route::get('/quote-board', [AdminWorkspaceController::class, 'board']);
+    Route::get('/workspace/projects', [AdminWorkspaceController::class, 'projects']);
+    Route::get('/workspace/communications', [AdminWorkspaceController::class, 'communications']);
+    Route::get('/workspace/tasks', [AdminWorkspaceController::class, 'tasks']);
+    Route::post('/workspace/tasks', [AdminWorkspaceController::class, 'storeTask'])->middleware('throttle:30,1');
+    Route::patch('/workspace/tasks/{studioTask}', [AdminWorkspaceController::class, 'updateTask']);
+    Route::delete('/workspace/tasks/{studioTask}', [AdminWorkspaceController::class, 'destroyTask']);
+    Route::get('/workspace/client-notes', [AdminWorkspaceController::class, 'notes']);
+    Route::post('/workspace/client-notes', [AdminWorkspaceController::class, 'storeNote'])->middleware('throttle:30,1');
+    Route::delete('/workspace/client-notes/{studioClientNote}', [AdminWorkspaceController::class, 'destroyNote']);
     Route::get('/clients', [AdminDashboardController::class, 'clients']);
     Route::get('/clients/quotes', [AdminDashboardController::class, 'clientQuotes']);
     Route::get('/activities', [AdminDashboardController::class, 'activities']);

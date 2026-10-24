@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Mail\ProposalReady;
 use App\Mail\ProjectAccessRenewed;
 use App\Models\QuoteRequest;
+use App\Models\StudioClientNote;
 use App\Support\AdminAudit;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -61,9 +62,19 @@ class AdminQuoteRequestController extends Controller
         if ($data === []) {
             return response()->json(['message' => 'Nincs módosítandó adat.'], 422);
         }
-        // The "quoted" status is never a cosmetic switch: only a successful mail send sets it.
-        if (($data['status'] ?? null) === 'quoted' && ! $quoteRequest->quoted_at) {
-            throw ValidationException::withMessages(['status' => 'Először mentsd az ajánlatot, majd használd az „Ajánlat tényleges elküldése” gombot.']);
+        // No admin API call may impersonate a client's proposal acceptance or a successful mail send.
+        if (isset($data['status']) && $data['status'] !== $quoteRequest->status) {
+            $allowed = match ($quoteRequest->status) {
+                'new' => ['reviewing', 'rejected'],
+                'reviewing' => ['new', 'rejected'],
+                'rejected' => ['reviewing'],
+                'quoted' => ['rejected'],
+                'accepted' => ['completed'],
+                default => [],
+            };
+            if (! in_array($data['status'], $allowed, true)) {
+                throw ValidationException::withMessages(['status' => 'Ez az állapotváltás itt nem engedélyezett. Ajánlatküldéshez és ügyfél-elfogadáshoz a megfelelő folyamatot használd.']);
+            }
         }
         $proposalFields = ['quoted_price_huf', 'proposal_summary', 'proposal_schedule', 'proposal_terms', 'proposal_valid_until'];
         if ($quoteRequest->quoted_at && collect($proposalFields)->contains(fn ($key) => array_key_exists($key, $data) &&
@@ -100,10 +111,19 @@ class AdminQuoteRequestController extends Controller
         // Existing client links stay valid. Older enquiries get a token only when necessary.
         if ($quoteRequest->portal_token_encrypted) {
             $token = Crypt::decryptString($quoteRequest->portal_token_encrypted);
+            // Renew older, still-valid links when sending the first proposal.
+            if (! $quoteRequest->portal_token_expires_at || $quoteRequest->portal_token_expires_at->isPast()) {
+                $token = bin2hex(random_bytes(32));
+                $quoteRequest->portal_token_hash = hash('sha256', $token);
+                $quoteRequest->portal_token_encrypted = Crypt::encryptString($token);
+                $quoteRequest->portal_token_expires_at = now()->addDays(config('portfolio.client_access_days'));
+                $quoteRequest->save();
+            }
         } else {
             $token = bin2hex(random_bytes(32));
             $quoteRequest->portal_token_hash = hash('sha256', $token);
             $quoteRequest->portal_token_encrypted = Crypt::encryptString($token);
+            $quoteRequest->portal_token_expires_at = now()->addDays(config('portfolio.client_access_days'));
             $quoteRequest->save();
         }
         $url = config('portfolio.frontend_url').'/ugyfel/projekt#'.$token;
@@ -135,6 +155,7 @@ class AdminQuoteRequestController extends Controller
         }
         $quoteRequest->portal_token_hash = hash('sha256', $token);
         $quoteRequest->portal_token_encrypted = Crypt::encryptString($token);
+        $quoteRequest->portal_token_expires_at = now()->addDays(config('portfolio.client_access_days'));
         $quoteRequest->save();
         AdminAudit::record($request, 'portal_access_rotated', 'quote_request', $quoteRequest->id);
         return response()->json(['message' => 'Új privát link elküldve. A korábbi link érvénytelenítve.']);
@@ -143,8 +164,13 @@ class AdminQuoteRequestController extends Controller
     public function destroy(Request $request, QuoteRequest $quoteRequest): JsonResponse
     {
         $id = $quoteRequest->id;
+        $clientEmail = $quoteRequest->email;
         $paths = $quoteRequest->documents()->pluck('storage_path')->all();
         $quoteRequest->delete();
+        // Do not retain standalone CRM notes when the last enquiry of this contact is deleted.
+        if (! QuoteRequest::where('email', $clientEmail)->exists()) {
+            StudioClientNote::where('client_email', $clientEmail)->delete();
+        }
         \Illuminate\Support\Facades\Storage::disk('local')->delete($paths);
         AdminAudit::record($request, 'deleted', 'quote_request', $id);
         return response()->json(['message' => 'Az ajánlatkérés véglegesen törölve.']);

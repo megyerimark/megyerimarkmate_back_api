@@ -254,8 +254,10 @@ class PortfolioBackendTest extends TestCase
         $tokenA = bin2hex(random_bytes(32));
         $tokenB = bin2hex(random_bytes(32));
         $quoteA->portal_token_hash = hash('sha256', $tokenA);
+        $quoteA->portal_token_expires_at = now()->addDays(30);
         $quoteA->save();
         $quoteB->portal_token_hash = hash('sha256', $tokenB);
+        $quoteB->portal_token_expires_at = now()->addDays(30);
         $quoteB->save();
         $this->postJson('/api/client/project/messages', ['token' => $tokenA, 'body' => 'Kérdésem van az oldaltervről.'])->assertCreated();
         $this->postJson('/api/client/project/collaboration', ['token' => $tokenB])
@@ -303,11 +305,71 @@ class PortfolioBackendTest extends TestCase
         $quote = QuoteRequest::create($this->sampleQuoteForModel());
         $oldToken = bin2hex(random_bytes(32));
         $quote->portal_token_hash = hash('sha256', $oldToken);
+        $quote->portal_token_expires_at = now()->addDays(30);
         $quote->save();
         $this->postJson('/api/client/project', ['token' => $oldToken])->assertOk();
         $this->actingAs($admin)->postJson('/api/admin/quote-requests/'.$quote->id.'/rotate-client-access')->assertOk();
         $this->postJson('/api/client/project', ['token' => $oldToken])->assertNotFound();
         \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\ProjectAccessRenewed::class, 1);
+    }
+
+    public function test_private_project_access_expires_and_rejects_downloads_and_messages(): void
+    {
+        Mail::fake();
+        config()->set('portfolio.mail_enabled', true);
+        config()->set('mail.default', 'smtp');
+        config()->set('portfolio.customer_receipt_enabled', true);
+        $this->postJson('/api/quote-requests', $this->sampleQuote())->assertCreated();
+        $token = null;
+        Mail::assertSent(CustomerQuoteConfirmation::class, function ($mail) use (&$token) {
+            $token = parse_url($mail->portalUrl, PHP_URL_FRAGMENT);
+            return is_string($token);
+        });
+        $this->postJson('/api/client/project', ['token' => $token])->assertOk();
+        $this->travel(91)->days();
+        $this->postJson('/api/client/project', ['token' => $token])->assertNotFound();
+        $this->postJson('/api/client/project/collaboration', ['token' => $token])->assertNotFound();
+        $this->postJson('/api/client/project/messages', ['token' => $token, 'body' => 'Próba'])->assertNotFound();
+        $this->postJson('/api/client/project/accept', ['token' => $token, 'accept_terms' => true])->assertNotFound();
+    }
+
+    public function test_change_password_invalidates_other_database_sessions(): void
+    {
+        config()->set('session.driver', 'database');
+        $admin = $this->admin();
+        \Illuminate\Support\Facades\DB::table('sessions')->insert([
+            'id' => 'old-stolen-session', 'user_id' => $admin->id,
+            'ip_address' => '127.0.0.1', 'user_agent' => 'Test',
+            'payload' => 'e30=', 'last_activity' => now()->timestamp,
+        ]);
+        $this->actingAs($admin)->putJson('/api/admin/password', [
+            'current_password' => 'password',
+            'password' => 'a-new-strong-password-2026',
+            'password_confirmation' => 'a-new-strong-password-2026',
+        ])->assertOk();
+        $this->assertDatabaseMissing('sessions', ['id' => 'old-stolen-session']);
+    }
+
+    public function test_admin_email_two_factor_blocks_api_until_correct_code(): void
+    {
+        Mail::fake();
+        config()->set('portfolio.mail_enabled', true);
+        config()->set('mail.default', 'smtp');
+        $admin = $this->admin();
+        $this->actingAs($admin)->putJson('/api/admin/security/two-factor', [
+            'enabled' => true, 'current_password' => 'password',
+        ])->assertOk();
+        $this->postJson('/admin/login', ['email' => $admin->email, 'password' => 'password'])
+            ->assertStatus(202)->assertJsonPath('requires_two_factor', true);
+        $this->getJson('/api/admin/me')->assertForbidden();
+        $code = null;
+        Mail::assertSent(\App\Mail\AdminLoginCode::class, function ($mail) use (&$code) {
+            $code = $mail->code;
+            return preg_match('/^[0-9]{6}$/', $code) === 1;
+        });
+        $this->postJson('/admin/verify-login', ['code' => 'abcdef'])->assertUnprocessable();
+        $this->postJson('/admin/verify-login', ['code' => $code])->assertOk();
+        $this->getJson('/api/admin/me')->assertOk();
     }
 
     private function sampleQuoteForModel(): array

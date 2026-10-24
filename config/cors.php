@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'paths' => ['api/*', 'sanctum/csrf-cookie', 'admin/login', 'admin/logout'],
+    'paths' => ['api/*', 'sanctum/csrf-cookie', 'admin/login', 'admin/logout', 'admin/forgot-password', 'admin/reset-password', 'admin/verify-login', 'admin/resend-login-code'],
     'allowed_methods' => ['*'],
     'allowed_origins' => array_values(array_filter(array_map(
         'trim', explode(',', env('CORS_ALLOWED_ORIGINS', 'http://localhost:4200'))

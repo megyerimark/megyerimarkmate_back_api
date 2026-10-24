@@ -42,6 +42,7 @@ class QuoteRequest extends Model
             'quoted_at' => 'datetime',
             'proposal_valid_until' => 'date:Y-m-d',
             'proposal_accepted_at' => 'datetime',
+            'portal_token_expires_at' => 'datetime',
             'quoted_price_huf' => 'integer',
         ];
     }

@@ -23,7 +23,7 @@ class PublicContentController extends Controller
 
     public function project(string $slug): JsonResponse
     {
-        $project = PortfolioProject::where('slug', $slug)->where('is_published', true)->firstOrFail();
+        $project = PortfolioProject::where('slug', $slug)->where('is_published', true)->where('is_demo', false)->firstOrFail();
         return response()->json(['data' => $project]);
     }
 

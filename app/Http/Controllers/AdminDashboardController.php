@@ -6,6 +6,7 @@ use App\Models\AdminActivity;
 use App\Models\PortfolioProject;
 use App\Models\QuoteRequest;
 use App\Models\Service;
+use App\Models\StudioTask;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +24,14 @@ class AdminDashboardController extends Controller
             'clients_total' => QuoteRequest::distinct()->count('email'),
             'portfolio_total' => PortfolioProject::count(),
             'services_total' => Service::count(),
+            'tasks_open' => StudioTask::where('is_done', false)->count(),
+            'tasks_overdue' => StudioTask::where('is_done', false)->whereDate('due_date', '<', today())->count(),
+            'quotes_quoted' => QuoteRequest::where('status', 'quoted')->count(),
+            'quotes_completed' => QuoteRequest::where('status', 'completed')->count(),
+            'accepted_proposals_value_huf' => (int) QuoteRequest::whereNotNull('proposal_accepted_at')->sum('quoted_price_huf'),
             'recent_quotes' => QuoteRequest::latest()->limit(5)->get(),
+            'upcoming_tasks' => StudioTask::where('is_done', false)->orderByRaw('CASE WHEN due_date IS NULL THEN 1 ELSE 0 END')
+                ->orderBy('due_date')->limit(5)->get(),
             'quotes_monthly' => collect(range(5, 0))->map(function ($offset) {
                 $month = now()->startOfMonth()->subMonths($offset);
                 return [
