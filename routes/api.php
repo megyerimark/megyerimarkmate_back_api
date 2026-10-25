@@ -20,10 +20,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 // Public read-only content. Unpublished projects and inactive services are excluded.
-Route::get('/services', [PublicContentController::class, 'services']);
-Route::get('/projects', [PublicContentController::class, 'projects']);
-Route::get('/projects/{slug}', [PublicContentController::class, 'project']);
-Route::get('/site-settings', [PublicContentController::class, 'settings']);
+Route::get('/services', [PublicContentController::class, 'services'])->middleware('throttle:120,1');
+Route::get('/projects', [PublicContentController::class, 'projects'])->middleware('throttle:120,1');
+Route::get('/projects/{slug}', [PublicContentController::class, 'project'])->middleware('throttle:120,1');
+Route::get('/site-settings', [PublicContentController::class, 'settings'])->middleware('throttle:120,1');
 
 // Public enquiry submission: no personal information in the response besides the reference ID.
 Route::post('/quote-requests', [QuoteRequestController::class, 'store'])->middleware('throttle:5,1');
