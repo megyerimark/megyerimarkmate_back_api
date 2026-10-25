@@ -68,6 +68,7 @@ class ProjectCollaborationController extends Controller
             throw ValidationException::withMessages(['body' => 'Elérted a projekt üzenetkorlátját.']);
         }
         $message = $quoteRequest->messages()->create(['author' => 'admin', 'body' => trim($data['body'])]);
+        $quoteRequest->markFirstResponse();
         AdminAudit::record($request, 'project_message_sent', 'quote_request', $quoteRequest->id);
         return response()->json(['data' => $message], 201);
     }

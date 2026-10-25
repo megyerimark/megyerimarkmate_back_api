@@ -14,6 +14,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
+        // Anonim eseményszámláló: nincs munkamenet, így CSRF-token sem.
+        $middleware->validateCsrfTokens(except: ['api/events']);
         $middleware->alias(['admin.2fa' => \App\Http\Middleware\RequireAdminTwoFactor::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

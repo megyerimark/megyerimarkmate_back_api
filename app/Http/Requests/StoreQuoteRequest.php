@@ -37,6 +37,13 @@ class StoreQuoteRequest extends FormRequest
             'wants_maintenance' => ['sometimes', 'boolean'],
             'privacy_notice_acknowledged' => ['required', 'accepted'],
             'website' => ['nullable', 'max:0'], // hidden honeypot; real clients leave empty
+            // Érkezési forrás: nem megbízható, kizárólag statisztikára használjuk.
+            'source' => ['nullable', Rule::in(['direct', 'search', 'social', 'referral', 'email', 'campaign'])],
+            'utm_source' => ['nullable', 'string', 'max:80', 'regex:/^[\pL\pN _.+\-]+$/u'],
+            'utm_medium' => ['nullable', 'string', 'max:80', 'regex:/^[\pL\pN _.+\-]+$/u'],
+            'utm_campaign' => ['nullable', 'string', 'max:80', 'regex:/^[\pL\pN _.+\-]+$/u'],
+            'referrer_host' => ['nullable', 'string', 'max:120', 'regex:/^[a-z0-9.\-]+$/i'],
+            'landing_path' => ['nullable', 'string', 'max:160', 'regex:/^\/[A-Za-z0-9\-._~\/]*$/'],
         ];
     }
 }

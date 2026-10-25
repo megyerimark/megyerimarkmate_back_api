@@ -7,6 +7,10 @@ use App\Http\Controllers\AdminWorkspaceController;
 use App\Http\Controllers\AdminMaintenanceController;
 use App\Http\Controllers\AdminMilestoneController;
 use App\Http\Controllers\AdminPortfolioProjectController;
+use App\Http\Controllers\AdminGrowthController;
+use App\Http\Controllers\AdminTestimonialController;
+use App\Http\Controllers\PublicEventController;
+use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
 use App\Http\Controllers\AdminQuoteRequestController;
 use App\Http\Controllers\AdminServiceController;
 use App\Http\Controllers\AdminSiteSettingController;
@@ -20,10 +24,16 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 // Public read-only content. Unpublished projects and inactive services are excluded.
-Route::get('/services', [PublicContentController::class, 'services'])->middleware('throttle:120,1');
-Route::get('/projects', [PublicContentController::class, 'projects'])->middleware('throttle:120,1');
-Route::get('/projects/{slug}', [PublicContentController::class, 'project'])->middleware('throttle:120,1');
-Route::get('/site-settings', [PublicContentController::class, 'settings'])->middleware('throttle:120,1');
+// A látogatók névtelenek: ezek az útvonalak nem indítanak munkamenetet és nem állítanak be sütit.
+Route::withoutMiddleware([EnsureFrontendRequestsAreStateful::class])->group(function () {
+    Route::get('/services', [PublicContentController::class, 'services'])->middleware('throttle:120,1');
+    Route::get('/projects', [PublicContentController::class, 'projects'])->middleware('throttle:120,1');
+    Route::get('/projects/{slug}', [PublicContentController::class, 'project'])->middleware('throttle:120,1');
+    Route::get('/site-settings', [PublicContentController::class, 'settings'])->middleware('throttle:120,1');
+    Route::get('/testimonials', [PublicContentController::class, 'testimonials'])->middleware('throttle:120,1');
+    // Sütik és személyes adatok nélküli, aggregált eseményszámlálás.
+    Route::post('/events', [PublicEventController::class, 'store'])->middleware('throttle:120,1');
+});
 
 // Public enquiry submission: no personal information in the response besides the reference ID.
 Route::post('/quote-requests', [QuoteRequestController::class, 'store'])->middleware('throttle:5,1');
@@ -65,6 +75,11 @@ Route::middleware(['auth:sanctum', 'can:access-admin', 'admin.2fa'])->prefix('ad
     Route::get('/consultations', [AdminConsultationController::class, 'index']);
     Route::post('/consultations', [AdminConsultationController::class, 'store']);
     Route::delete('/consultations/{consultationSlot}', [AdminConsultationController::class, 'destroy']);
+
+    Route::get('/growth', [AdminGrowthController::class, 'index']);
+    Route::get('/exports/quote-requests', [AdminQuoteRequestController::class, 'export'])->middleware('throttle:10,1');
+    Route::post('/quote-requests/{quoteRequest}/contacted', [AdminQuoteRequestController::class, 'markContacted']);
+    Route::apiResource('testimonials', AdminTestimonialController::class)->except('show');
 
     Route::get('/quote-requests', [AdminQuoteRequestController::class, 'index']);
     Route::get('/quote-requests/{quoteRequest}', [AdminQuoteRequestController::class, 'show']);

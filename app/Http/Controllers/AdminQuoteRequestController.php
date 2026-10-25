@@ -58,6 +58,7 @@ class AdminQuoteRequestController extends Controller
             'proposal_schedule' => ['sometimes', 'nullable', 'string', 'max:3000'],
             'proposal_terms' => ['sometimes', 'nullable', 'string', 'max:4000'],
             'proposal_valid_until' => ['sometimes', 'nullable', 'date_format:Y-m-d', 'after_or_equal:today'],
+            'follow_up_at' => ['sometimes', 'nullable', 'date_format:Y-m-d'],
         ]);
         if ($data === []) {
             return response()->json(['message' => 'Nincs módosítandó adat.'], 422);
@@ -84,7 +85,7 @@ class AdminQuoteRequestController extends Controller
         if ($quoteRequest->proposal_accepted_at && isset($data['status']) && $data['status'] !== $quoteRequest->status && ! ($quoteRequest->status === 'accepted' && $data['status'] === 'completed')) {
             throw ValidationException::withMessages(['status' => 'Az elfogadott ajánlat állapotát a megerősítés megőrzése érdekében nem lehet felülírni.']);
         }
-        foreach (['status', 'admin_notes', ...$proposalFields] as $key) {
+        foreach (['status', 'admin_notes', 'follow_up_at', ...$proposalFields] as $key) {
             if (array_key_exists($key, $data)) {
                 $quoteRequest->{$key} = $data[$key];
             }
@@ -136,6 +137,7 @@ class AdminQuoteRequestController extends Controller
         $quoteRequest->status = 'quoted';
         $quoteRequest->quoted_at = now();
         $quoteRequest->save();
+        $quoteRequest->markFirstResponse();
         AdminAudit::record($request, 'proposal_sent', 'quote_request', $quoteRequest->id);
         return response()->json(['message' => 'Az ajánlat e-mailben elküldve.', 'data' => $quoteRequest->fresh()]);
     }
@@ -159,6 +161,46 @@ class AdminQuoteRequestController extends Controller
         $quoteRequest->save();
         AdminAudit::record($request, 'portal_access_rotated', 'quote_request', $quoteRequest->id);
         return response()->json(['message' => 'Új privát link elküldve. A korábbi link érvénytelenítve.']);
+    }
+
+    /** Kézi jelölés: az érdeklődővel felvettem a kapcsolatot (telefon, e-mail, üzenet). Csak egyszer állítja be az időpontot. */
+    public function markContacted(Request $request, QuoteRequest $quoteRequest): JsonResponse
+    {
+        $quoteRequest->markFirstResponse();
+        AdminAudit::record($request, 'marked_contacted', 'quote_request', $quoteRequest->id);
+        return response()->json(['data' => $quoteRequest->fresh()]);
+    }
+
+    /** Excelben megnyitható CSV (pontosvessző, UTF-8 BOM). A cellák képlet-injektálás ellen védettek. */
+    public function export(Request $request): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $filters = $request->validate(['status' => ['sometimes', Rule::in(self::STATUSES)]]);
+        AdminAudit::record($request, 'exported', 'quote_requests');
+        $header = ['Azonosító', 'Beérkezett', 'Név', 'E-mail', 'Telefon', 'Cég', 'Weboldaltípus', 'Státusz', 'Költségkeret',
+            'Ajánlat összege (Ft)', 'Forrás', 'Hivatkozó oldal', 'Kampány', 'Első válasz', 'Utánkövetés', 'Elfogadva'];
+        $safe = static function (mixed $value): string {
+            $text = (string) ($value ?? '');
+            return preg_match('/^[=+\-@\t\r]/', $text) === 1 ? "'".$text : $text;
+        };
+
+        return response()->streamDownload(function () use ($header, $safe, $filters) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, $header, ';', '"', '');
+            $query = QuoteRequest::query()->when(! empty($filters['status']), fn ($builder) => $builder->where('status', $filters['status']));
+            $query->orderBy('id')->chunkById(200, function ($rows) use ($out, $safe) {
+                foreach ($rows as $row) {
+                    fputcsv($out, array_map($safe, [
+                        $row->id, $row->created_at?->format('Y-m-d H:i'), $row->customer_name, $row->email, $row->phone,
+                        $row->company_name, $row->website_type, $row->status, $row->budget_range, $row->quoted_price_huf,
+                        $row->utm_source ?: $row->source, $row->referrer_host, $row->utm_campaign,
+                        $row->first_response_at?->format('Y-m-d H:i'), $row->follow_up_at?->format('Y-m-d'),
+                        $row->proposal_accepted_at?->format('Y-m-d'),
+                    ]), ';', '"', '');
+                }
+            });
+            fclose($out);
+        }, 'ajanlatkeresek-'.now()->format('Y-m-d').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     public function destroy(Request $request, QuoteRequest $quoteRequest): JsonResponse

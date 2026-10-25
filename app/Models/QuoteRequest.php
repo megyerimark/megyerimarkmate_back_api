@@ -11,6 +11,7 @@ class QuoteRequest extends Model
         'customer_name', 'email', 'phone', 'company_name', 'website_type',
         'design_style', 'industry', 'layout_style', 'font_style', 'colors', 'features', 'inspiration_urls',
         'budget_range', 'desired_deadline', 'project_description', 'wants_maintenance', 'consultation_preference',
+        'source', 'utm_source', 'utm_medium', 'utm_campaign', 'referrer_host', 'landing_path',
     ];
 
     protected $hidden = ['portal_token_hash', 'portal_token_encrypted'];
@@ -23,6 +24,14 @@ class QuoteRequest extends Model
     public function maintenanceAgreement(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
         return $this->hasOne(MaintenanceAgreement::class);
+    }
+
+    /** Az első valódi válasz időpontja (reakcióidő-mérés). Csak egyszer áll be. */
+    public function markFirstResponse(): void
+    {
+        if (! $this->first_response_at) {
+            $this->forceFill(['first_response_at' => now()])->save();
+        }
     }
 
     public function messages(): HasMany
@@ -45,6 +54,8 @@ class QuoteRequest extends Model
             'wants_maintenance' => 'boolean',
             'privacy_notice_acknowledged_at' => 'datetime',
             'quoted_at' => 'datetime',
+            'first_response_at' => 'datetime',
+            'follow_up_at' => 'date:Y-m-d',
             'proposal_valid_until' => 'date:Y-m-d',
             'proposal_accepted_at' => 'datetime',
             'portal_token_expires_at' => 'datetime',

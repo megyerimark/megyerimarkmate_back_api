@@ -9,7 +9,7 @@ class PortfolioProject extends Model
 {
     protected $fillable = [
         'slug', 'title', 'category', 'summary', 'description', 'technologies',
-        'project_url', 'is_demo', 'is_published', 'is_featured', 'sort_order',
+        'project_url', 'is_demo', 'is_published', 'is_featured', 'sort_order', 'results',
     ];
 
     protected $hidden = ['cover_image_path'];
@@ -19,6 +19,7 @@ class PortfolioProject extends Model
     {
         return [
             'technologies' => 'array',
+            'results' => 'array',
             'is_demo' => 'boolean',
             'is_published' => 'boolean',
             'is_featured' => 'boolean',
