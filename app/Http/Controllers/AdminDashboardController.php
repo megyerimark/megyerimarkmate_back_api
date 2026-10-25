@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AdminActivity;
+use App\Models\MaintenanceAgreement;
 use App\Models\PortfolioProject;
 use App\Models\QuoteRequest;
 use App\Models\Service;
@@ -29,6 +30,21 @@ class AdminDashboardController extends Controller
             'quotes_quoted' => QuoteRequest::where('status', 'quoted')->count(),
             'quotes_completed' => QuoteRequest::where('status', 'completed')->count(),
             'accepted_proposals_value_huf' => (int) QuoteRequest::whereNotNull('proposal_accepted_at')->sum('quoted_price_huf'),
+            'maintenance_leads' => QuoteRequest::where('wants_maintenance', true)->count(),
+            'maintenance_active' => MaintenanceAgreement::where('status', 'active')->count(),
+            // Signed monthly contract values, NOT received Stripe/bank payments.
+            'maintenance_contract_value_huf' => (int) MaintenanceAgreement::where('status', 'active')->sum('monthly_fee_huf'),
+            'maintenance_reviews_due' => MaintenanceAgreement::where('status', 'active')->whereNotNull('next_review_on')
+                ->whereDate('next_review_on', '<=', today())->count(),
+            'quotes_by_status' => collect(['new', 'reviewing', 'quoted', 'accepted', 'rejected', 'completed'])
+                ->map(fn ($status) => ['status' => $status, 'count' => QuoteRequest::where('status', $status)->count()])->values(),
+            'quotes_by_type' => QuoteRequest::select('website_type', DB::raw('COUNT(*) AS total'))
+                ->groupBy('website_type')->orderByDesc('total')->limit(6)->get()
+                ->map(fn ($row) => ['label' => $row->website_type, 'count' => (int) $row->total]),
+            'lead_sources' => [
+                'quiz' => QuoteRequest::where('project_description', 'like', 'AURORA KVÍZ – IGÉNYFELMÉRÉS%')->count(),
+                'form' => QuoteRequest::where('project_description', 'not like', 'AURORA KVÍZ – IGÉNYFELMÉRÉS%')->count(),
+            ],
             'recent_quotes' => QuoteRequest::latest()->limit(5)->get(),
             'upcoming_tasks' => StudioTask::where('is_done', false)->orderByRaw('CASE WHEN due_date IS NULL THEN 1 ELSE 0 END')
                 ->orderBy('due_date')->limit(5)->get(),
@@ -37,6 +53,14 @@ class AdminDashboardController extends Controller
                 return [
                     'label' => $month->translatedFormat('M'),
                     'count' => QuoteRequest::whereBetween('created_at', [$month->copy()->startOfMonth(), $month->copy()->endOfMonth()])->count(),
+                ];
+            })->values(),
+            'accepted_value_monthly' => collect(range(5, 0))->map(function ($offset) {
+                $month = now()->startOfMonth()->subMonths($offset);
+                return [
+                    'label' => $month->translatedFormat('M'),
+                    'value' => (int) QuoteRequest::whereBetween('proposal_accepted_at',
+                        [$month->copy()->startOfMonth(), $month->copy()->endOfMonth()])->sum('quoted_price_huf'),
                 ];
             })->values(),
         ]]);

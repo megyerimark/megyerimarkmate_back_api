@@ -4,6 +4,7 @@ use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\AdminSecurityController;
 use App\Http\Controllers\AdminWorkspaceController;
+use App\Http\Controllers\AdminMaintenanceController;
 use App\Http\Controllers\AdminMilestoneController;
 use App\Http\Controllers\AdminPortfolioProjectController;
 use App\Http\Controllers\AdminQuoteRequestController;
@@ -45,6 +46,9 @@ Route::middleware(['auth:sanctum', 'can:access-admin', 'admin.2fa'])->prefix('ad
     Route::get('/security/sessions', [AdminSecurityController::class, 'sessions']);
     Route::delete('/security/sessions/others', [AdminSecurityController::class, 'revokeOtherSessions'])->middleware('throttle:5,1');
     Route::get('/dashboard', [AdminDashboardController::class, 'index']);
+    Route::get('/maintenance-agreements', [AdminMaintenanceController::class, 'index']);
+    Route::post('/maintenance-agreements', [AdminMaintenanceController::class, 'store'])->middleware('throttle:20,1');
+    Route::patch('/maintenance-agreements/{maintenanceAgreement}', [AdminMaintenanceController::class, 'update'])->middleware('throttle:20,1');
     Route::get('/quote-board', [AdminWorkspaceController::class, 'board']);
     Route::get('/workspace/projects', [AdminWorkspaceController::class, 'projects']);
     Route::get('/workspace/communications', [AdminWorkspaceController::class, 'communications']);

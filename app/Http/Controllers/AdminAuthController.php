@@ -122,11 +122,12 @@ class AdminAuthController extends Controller
         $user->password = Hash::make($data['password']);
         $user->remember_token = Str::random(60);
         $user->save();
-        $request->session()->regenerate();
+        if ($request->hasSession()) $request->session()->regenerate();
         // Stolen/forgotten browser sessions must not survive a password change.
         if (config('session.driver') === 'database') {
-            DB::table('sessions')->where('user_id', $user->id)
-                ->where('id', '!=', $request->session()->getId())->delete();
+            $others = DB::table('sessions')->where('user_id', $user->id);
+            if ($request->hasSession()) $others->where('id', '!=', $request->session()->getId());
+            $others->delete();
         }
         $user->tokens()->delete();
         return response()->json(['message' => 'A jelszó módosítva. A többi munkamenetet kijelentkeztettük.']);

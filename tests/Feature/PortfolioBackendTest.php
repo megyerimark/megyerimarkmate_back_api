@@ -352,6 +352,9 @@ class PortfolioBackendTest extends TestCase
 
     public function test_admin_email_two_factor_blocks_api_until_correct_code(): void
     {
+        // A real Angular SPA sends an Origin/Referer, allowing Sanctum's
+        // stateful middleware to attach the same session on API requests.
+        $this->withHeader('Origin', config('app.url'));
         Mail::fake();
         config()->set('portfolio.mail_enabled', true);
         config()->set('mail.default', 'smtp');

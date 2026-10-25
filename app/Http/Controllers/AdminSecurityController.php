@@ -31,10 +31,11 @@ class AdminSecurityController extends Controller
             return response()->json(['message' => 'A kétlépcsős belépéshez működő SMTP-küldést kell beállítani.'], 503);
         }
         $request->user()->forceFill(['two_factor_email_enabled' => $data['enabled']])->save();
-        $request->session()->put('admin_two_factor_verified', $request->user()->id);
+        if ($request->hasSession()) $request->session()->put('admin_two_factor_verified', $request->user()->id);
         if (config('session.driver') === 'database') {
-            DB::table('sessions')->where('user_id', $request->user()->id)
-                ->where('id', '!=', $request->session()->getId())->delete();
+            $others = DB::table('sessions')->where('user_id', $request->user()->id);
+            if ($request->hasSession()) $others->where('id', '!=', $request->session()->getId());
+            $others->delete();
         }
         AdminAudit::record($request, $data['enabled'] ? 'two_factor_enabled' : 'two_factor_disabled', 'user', $request->user()->id);
         return response()->json(['message' => $data['enabled'] ? 'E-mailes kétlépcsős védelem bekapcsolva.' : 'Kétlépcsős védelem kikapcsolva.', 'data' => ['two_factor_email_enabled' => $data['enabled']]]);
@@ -46,6 +47,9 @@ class AdminSecurityController extends Controller
             return response()->json(['message' => 'A munkamenetlista adatbázis-alapú SESSION_DRIVER használatával érhető el.'], 409);
         }
 
+        if (! $request->hasSession()) {
+            return response()->json(['message' => 'Ehhez a művelethez munkamenetes bejelentkezés szükséges.'], 409);
+        }
         $current = $request->session()->getId();
         $sessions = DB::table('sessions')->where('user_id', $request->user()->id)
             ->orderByDesc('last_activity')->limit(50)
@@ -65,6 +69,9 @@ class AdminSecurityController extends Controller
     {
         if (config('session.driver') !== 'database') {
             return response()->json(['message' => 'Adatbázis-alapú munkamenettárolás szükséges.'], 409);
+        }
+        if (! $request->hasSession()) {
+            return response()->json(['message' => 'Ehhez a művelethez munkamenetes bejelentkezés szükséges.'], 409);
         }
         $removed = DB::table('sessions')->where('user_id', $request->user()->id)
             ->where('id', '!=', $request->session()->getId())->delete();

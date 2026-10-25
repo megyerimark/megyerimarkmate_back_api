@@ -20,6 +20,11 @@ class QuoteRequest extends Model
         return $this->hasMany(ProjectMilestone::class)->orderBy('sort_order')->orderBy('id');
     }
 
+    public function maintenanceAgreement(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(MaintenanceAgreement::class);
+    }
+
     public function messages(): HasMany
     {
         return $this->hasMany(ProjectMessage::class);

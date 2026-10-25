@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class StudioTask extends Model
 {
     protected $fillable = ['title', 'description', 'due_date', 'is_done', 'quote_request_id'];
+    protected $attributes = ['is_done' => false];
 
     protected function casts(): array
     {
