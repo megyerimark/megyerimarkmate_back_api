@@ -28,6 +28,8 @@ class AdminSiteSettingController extends Controller
             'instagram_url' => ['sometimes', 'nullable', 'url:http,https', 'max:500'],
             'linkedin_url' => ['sometimes', 'nullable', 'url:http,https', 'max:500'],
             'github_url' => ['sometimes', 'nullable', 'url:http,https', 'max:500'],
+            'reviews_widget_id' => ['sometimes', 'nullable', 'string', 'max:64', 'regex:/\A[A-Za-z0-9]+\z/'],
+            'google_review_url' => ['sometimes', 'nullable', 'url:https', 'max:500'],
         ]);
 
         foreach ($data as $key => $value) {

@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\AdminActivity;
+use App\Models\ClientSite;
 use App\Models\MaintenanceAgreement;
 use App\Models\PortfolioProject;
+use App\Models\ProjectMessage;
 use App\Models\QuoteRequest;
 use App\Models\Service;
 use App\Models\StudioTask;
@@ -26,6 +28,17 @@ class AdminDashboardController extends Controller
             'portfolio_total' => PortfolioProject::count(),
             'services_total' => Service::count(),
             'tasks_open' => StudioTask::where('is_done', false)->count(),
+            'messages_unread' => ProjectMessage::unreadFromClient()->count(),
+            'sites_expiring' => ClientSite::expiringWithin(30)->get(['id', 'name', 'domain', 'domain_expires_on', 'hosting_expires_on', 'ssl_expires_on']),
+            'unread_threads' => ProjectMessage::unreadFromClient()
+                ->selectRaw('quote_request_id, COUNT(*) as unread, MAX(created_at) as last_at')
+                ->groupBy('quote_request_id')->orderByDesc('last_at')->limit(10)->get()
+                ->map(fn ($row) => [
+                    'quote_request_id' => (int) $row->quote_request_id,
+                    'customer_name' => QuoteRequest::whereKey($row->quote_request_id)->value('customer_name'),
+                    'unread' => (int) $row->unread,
+                    'last_at' => $row->last_at,
+                ])->values(),
             'tasks_overdue' => StudioTask::where('is_done', false)->whereDate('due_date', '<', today())->count(),
             'quotes_quoted' => QuoteRequest::where('status', 'quoted')->count(),
             'quotes_completed' => QuoteRequest::where('status', 'completed')->count(),

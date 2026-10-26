@@ -27,6 +27,9 @@ class AppServiceProvider extends ServiceProvider
             Limit::perHour(20)->by('email:'.Str::lower((string) $request->input('email'))),
         ]);
 
+        // Globális API-korlát IP-címenként (árasztásos támadások ellen). Az egyes végpontok ennél szigorúbbak.
+        RateLimiter::for('api', fn (Request $request) => Limit::perMinute((int) config('portfolio.api_rate_per_minute'))->by('api:'.$request->ip()));
+
         RateLimiter::for('admin-password-reset', fn (Request $request) => [
             Limit::perMinute(3)->by('ip:'.$request->ip()),
             Limit::perHour(5)->by('email:'.Str::lower((string) $request->input('email'))),

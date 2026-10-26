@@ -35,4 +35,13 @@ return [
         ],
     ],
 
+    // Online fizetés (karbantartási előfizetés, előleg). Kulcsok: dashboard.stripe.com → Fejlesztők → API-kulcsok.
+    'stripe' => [
+        'secret' => env('STRIPE_SECRET'),
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+        // Üresen a Stripe-fiók alapértelmezett API-verziója érvényes.
+        'api_version' => env('STRIPE_API_VERSION'),
+        'currency' => 'huf',
+    ],
+
 ];

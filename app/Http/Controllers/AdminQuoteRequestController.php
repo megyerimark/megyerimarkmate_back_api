@@ -27,7 +27,7 @@ class AdminQuoteRequestController extends Controller
             'q' => ['sometimes', 'string', 'max:100'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:50'],
         ]);
-        $query = QuoteRequest::query();
+        $query = QuoteRequest::query()->withCount(['messages as unread_messages_count' => fn (Builder $q) => $q->where('author', 'client')->whereNull('read_at')]);
         if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
@@ -54,6 +54,7 @@ class AdminQuoteRequestController extends Controller
             'status' => ['sometimes', 'required', Rule::in(self::STATUSES)],
             'admin_notes' => ['sometimes', 'nullable', 'string', 'max:5000'],
             'quoted_price_huf' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:999999999'],
+            'deposit_percent' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:100'],
             'proposal_summary' => ['sometimes', 'nullable', 'string', 'max:7000'],
             'proposal_schedule' => ['sometimes', 'nullable', 'string', 'max:3000'],
             'proposal_terms' => ['sometimes', 'nullable', 'string', 'max:4000'],
@@ -77,7 +78,7 @@ class AdminQuoteRequestController extends Controller
                 throw ValidationException::withMessages(['status' => 'Ez az állapotváltás itt nem engedélyezett. Ajánlatküldéshez és ügyfél-elfogadáshoz a megfelelő folyamatot használd.']);
             }
         }
-        $proposalFields = ['quoted_price_huf', 'proposal_summary', 'proposal_schedule', 'proposal_terms', 'proposal_valid_until'];
+        $proposalFields = ['quoted_price_huf', 'deposit_percent', 'proposal_summary', 'proposal_schedule', 'proposal_terms', 'proposal_valid_until'];
         if ($quoteRequest->quoted_at && collect($proposalFields)->contains(fn ($key) => array_key_exists($key, $data) &&
             ($key === 'proposal_valid_until' ? $quoteRequest->{$key}?->format('Y-m-d') : $quoteRequest->{$key}) != $data[$key])) {
             throw ValidationException::withMessages(['proposal' => 'Az elküldött ajánlat tartalma nem módosítható csendben.']);
@@ -161,6 +162,29 @@ class AdminQuoteRequestController extends Controller
         $quoteRequest->save();
         AdminAudit::record($request, 'portal_access_rotated', 'quote_request', $quoteRequest->id);
         return response()->json(['message' => 'Új privát link elküldve. A korábbi link érvénytelenítve.']);
+    }
+
+    /** Előleg kézi jóváírása (pl. banki átutalás) – bevételként is rögzül a Pénzügyekben. */
+    public function markDepositPaid(Request $request, QuoteRequest $quoteRequest): JsonResponse
+    {
+        $data = $request->validate(['paid_on' => ['sometimes', 'date_format:Y-m-d', 'before_or_equal:today']]);
+        $amount = $quoteRequest->depositAmount();
+        if (! $quoteRequest->proposal_accepted_at || ! $amount) {
+            throw ValidationException::withMessages(['deposit' => 'Ehhez az ajánlathoz nincs elfogadott előleg.']);
+        }
+        if ($quoteRequest->deposit_paid_at) {
+            throw ValidationException::withMessages(['deposit' => 'Az előleg már be van jelölve.']);
+        }
+        $date = $data['paid_on'] ?? now()->toDateString();
+        $quoteRequest->forceFill(['deposit_paid_at' => $date.' '.now()->format('H:i:s'), 'deposit_paid_via' => 'transfer'])->save();
+        \App\Models\FinanceEntry::create([
+            'type' => 'income', 'occurred_on' => $date, 'amount_huf' => $amount,
+            'vat_rate' => \App\Models\AdminSetting::finance()['vat_registered'] ? 27 : 0,
+            'category' => 'Előleg', 'description' => 'Előleg (átutalás) – #'.$quoteRequest->id.' '.$quoteRequest->customer_name,
+            'quote_request_id' => $quoteRequest->id, 'source' => 'manual',
+        ]);
+        AdminAudit::record($request, 'deposit_marked_paid', 'quote_request', $quoteRequest->id);
+        return response()->json(['message' => 'Előleg jóváírva.', 'data' => $quoteRequest->fresh()]);
     }
 
     /** Kézi jelölés: az érdeklődővel felvettem a kapcsolatot (telefon, e-mail, üzenet). Csak egyszer állítja be az időpontot. */

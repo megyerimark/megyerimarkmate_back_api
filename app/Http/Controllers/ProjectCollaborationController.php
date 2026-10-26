@@ -2,11 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\ClientMessageReceived;
 use App\Models\ProjectDocument;
 use App\Models\QuoteRequest;
 use App\Support\AdminAudit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -43,7 +47,28 @@ class ProjectCollaborationController extends Controller
             throw ValidationException::withMessages(['body' => 'Elérted a projekt üzenetkorlátját.']);
         }
         $message = $quote->messages()->create(['author' => 'client', 'body' => trim($data['body'])]);
-        return response()->json(['data' => $message], 201)->header('Cache-Control', 'no-store, private');
+        $this->notifyAdmin($quote, $message);
+        return response()->json(['data' => $message->only(['id', 'author', 'body', 'created_at'])], 201)->header('Cache-Control', 'no-store, private');
+    }
+
+    /** E-mail az adminnak új ügyfélüzenetről – projektenként legfeljebb 10 percenként egy, a válasz után küldve. */
+    private function notifyAdmin(QuoteRequest $quote, \App\Models\ProjectMessage $message): void
+    {
+        $owner = config('portfolio.admin_email');
+        if (! $owner || ! config('portfolio.mail_enabled') || in_array(config('mail.default'), ['log', 'array', 'null'], true)) {
+            return;
+        }
+        if (! Cache::add('client-message-mail:'.$quote->id, true, now()->addMinutes(10))) {
+            return;
+        }
+        $url = config('portfolio.frontend_url').'/admin?ajanlat='.$quote->id;
+        \Illuminate\Support\defer(function () use ($owner, $quote, $message, $url) {
+            try {
+                Mail::to($owner)->send(new ClientMessageReceived($quote, $message, $url));
+            } catch (\Throwable $exception) {
+                Log::error('Client message notice failed', ['quote_id' => $quote->id, 'exception_type' => $exception::class]);
+            }
+        });
     }
 
     public function clientDownload(Request $request, ProjectDocument $document): StreamedResponse
@@ -58,7 +83,10 @@ class ProjectCollaborationController extends Controller
 
     public function adminIndex(QuoteRequest $quoteRequest): JsonResponse
     {
-        return response()->json(['data' => $this->records($quoteRequest)]);
+        $records = $this->records($quoteRequest);
+        // Az admin megnyitotta a beszélgetést: az ügyfél üzenetei olvasottá válnak.
+        $quoteRequest->messages()->unreadFromClient()->update(['read_at' => now()]);
+        return response()->json(['data' => $records]);
     }
 
     public function adminMessage(Request $request, QuoteRequest $quoteRequest): JsonResponse

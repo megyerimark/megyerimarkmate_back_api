@@ -9,7 +9,7 @@ class MaintenanceAgreement extends Model
 {
     protected $fillable = [
         'quote_request_id', 'plan_name', 'monthly_fee_huf', 'status',
-        'starts_on', 'next_review_on', 'included_services', 'internal_notes',
+        'starts_on', 'next_review_on', 'included_services', 'internal_notes', 'billing_enabled',
     ];
 
     protected function casts(): array
@@ -18,6 +18,9 @@ class MaintenanceAgreement extends Model
             'monthly_fee_huf' => 'integer',
             'starts_on' => 'date:Y-m-d',
             'next_review_on' => 'date:Y-m-d',
+            'billing_enabled' => 'boolean',
+            'current_period_end' => 'datetime',
+            'last_payment_at' => 'datetime',
         ];
     }
 

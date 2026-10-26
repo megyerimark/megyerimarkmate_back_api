@@ -7,6 +7,12 @@ return [
     'customer_receipt_enabled' => filter_var(env('PORTFOLIO_CUSTOMER_RECEIPT_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
     'client_access_days' => max(1, (int) env('PORTFOLIO_CLIENT_ACCESS_DAYS', 90)),
 
+    // Globális API-kéréskorlát IP-címenként és percenként (DDoS / scraper elleni alapvédelem).
+    'api_rate_per_minute' => max(30, (int) env('PORTFOLIO_API_RATE_PER_MINUTE', 300)),
+
+    // Az Általános Szerződési Feltételek aktuális verziója – az elfogadáskor rögzítjük. ÁSZF-módosításkor növeld!
+    'terms_version' => env('PORTFOLIO_TERMS_VERSION', '2026-11'),
+
     // Éles környezetben az admin kétlépcsős belépése kötelező, és nem kapcsolható ki.
     'require_admin_2fa' => filter_var(
         env('PORTFOLIO_REQUIRE_ADMIN_2FA', env('APP_ENV') === 'production'),

@@ -49,6 +49,24 @@ class AdminMaintenanceController extends Controller
             ->load(['quoteRequest' => fn ($q) => $q->select(self::QUOTE_FIELDS)])]);
     }
 
+    /** Online előfizetés lemondása a jelenlegi számlázási időszak végével (a már kifizetett hónap még jár). */
+    public function cancelSubscription(Request $request, MaintenanceAgreement $maintenanceAgreement): JsonResponse
+    {
+        if (! $maintenanceAgreement->stripe_subscription_id || ! \App\Support\Stripe::enabled()) {
+            throw ValidationException::withMessages(['subscription' => 'Ehhez a megállapodáshoz nincs online előfizetés.']);
+        }
+        try {
+            $sub = \App\Support\Stripe::post('subscriptions/'.$maintenanceAgreement->stripe_subscription_id, ['cancel_at_period_end' => 'true']);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Stripe cancel failed', ['agreement_id' => $maintenanceAgreement->id, 'error' => $e->getMessage()]);
+            throw ValidationException::withMessages(['subscription' => 'A Stripe most nem érhető el, próbáld újra később.']);
+        }
+        $maintenanceAgreement->forceFill(['stripe_status' => ($sub['status'] ?? 'active').'_cancel_scheduled', 'billing_enabled' => false])->save();
+        AdminAudit::record($request, 'subscription_cancel_scheduled', 'maintenance_agreement', $maintenanceAgreement->id);
+        return response()->json(['message' => 'Az előfizetés a jelenlegi időszak végén megszűnik.', 'data' => $maintenanceAgreement->fresh()
+            ->load(['quoteRequest' => fn ($q) => $q->select(self::QUOTE_FIELDS)])]);
+    }
+
     private function ensureEligible(int $quoteId, string $status): void
     {
         if ($status !== 'active') return;
@@ -71,6 +89,7 @@ class AdminMaintenanceController extends Controller
             'next_review_on' => ['sometimes', 'nullable', 'date_format:Y-m-d'],
             'included_services' => ['sometimes', 'nullable', 'string', 'max:3000'],
             'internal_notes' => ['sometimes', 'nullable', 'string', 'max:3000'],
+            'billing_enabled' => ['sometimes', 'boolean'],
         ];
     }
 }

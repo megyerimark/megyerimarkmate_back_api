@@ -14,11 +14,12 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
+        $middleware->throttleApi();
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
         // Reverse proxy / tárhely-terheléselosztó mögött is felismerjük a HTTPS-t (HSTS, secure süti).
         $middleware->trustProxies(at: env('TRUSTED_PROXIES') ? explode(',', env('TRUSTED_PROXIES')) : null);
         // Anonim eseményszámláló: nincs munkamenet, így CSRF-token sem.
-        $middleware->validateCsrfTokens(except: ['api/events']);
+        $middleware->validateCsrfTokens(except: ['api/events', 'api/stripe/webhook']);
         $middleware->alias(['admin.2fa' => \App\Http\Middleware\RequireAdminTwoFactor::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

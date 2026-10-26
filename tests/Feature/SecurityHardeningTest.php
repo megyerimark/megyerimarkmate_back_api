@@ -159,4 +159,14 @@ class SecurityHardeningTest extends TestCase
         $this->assertCount(1, File::glob($base.'/backups/backup-*.tar.gz'));
         File::deleteDirectory($base);
     }
+
+    public function test_global_api_rate_limit_per_ip(): void
+    {
+        config()->set('portfolio.api_rate_per_minute', 30);
+        for ($i = 0; $i < 30; $i++) {
+            $this->getJson('/api/site-settings')->assertOk();
+        }
+        $this->getJson('/api/site-settings')->assertStatus(429);
+        $this->withServerVariables(['REMOTE_ADDR' => '10.9.9.9'])->getJson('/api/site-settings')->assertOk();
+    }
 }

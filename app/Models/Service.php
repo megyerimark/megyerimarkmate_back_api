@@ -8,6 +8,7 @@ class Service extends Model
 {
     protected $fillable = [
         'slug', 'title', 'summary', 'description', 'features',
+        'title_en', 'summary_en', 'description_en', 'features_en',
         'starting_price_huf', 'is_active', 'sort_order',
     ];
 
@@ -15,6 +16,7 @@ class Service extends Model
     {
         return [
             'features' => 'array',
+            'features_en' => 'array',
             'starting_price_huf' => 'integer',
             'is_active' => 'boolean',
             'sort_order' => 'integer',

@@ -10,6 +10,7 @@ class PortfolioProject extends Model
     protected $fillable = [
         'slug', 'title', 'category', 'summary', 'description', 'technologies',
         'project_url', 'is_demo', 'is_published', 'is_featured', 'sort_order', 'results',
+        'title_en', 'category_en', 'summary_en', 'description_en',
     ];
 
     protected $hidden = ['cover_image_path'];

@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\CustomerAcceptanceConfirmation;
 use App\Mail\ProposalAccepted;
+use App\Support\Stripe;
 use App\Models\QuoteRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -43,6 +45,20 @@ class ClientProjectController extends Controller
             'proposal_valid_until' => $quote->quoted_at ? $quote->proposal_valid_until : null,
             'proposal_accepted_at' => $quote->proposal_accepted_at,
             'access_expires_at' => $quote->portal_token_expires_at,
+            'deposit_percent' => $quote->quoted_at ? $quote->deposit_percent : null,
+            'deposit_amount_huf' => $quote->quoted_at ? $quote->depositAmount() : null,
+            'deposit_paid_at' => $quote->deposit_paid_at,
+            'terms_version' => $quote->terms_version,
+            'online_payment' => Stripe::enabled(),
+            'maintenance' => ($m = $quote->maintenanceAgreement) && ($m->billing_enabled || $m->stripe_subscription_id) ? [
+                'plan_name' => $m->plan_name,
+                'monthly_fee_huf' => $m->monthly_fee_huf,
+                'included_services' => $m->included_services,
+                'subscription_status' => $m->stripe_status,
+                'current_period_end' => $m->current_period_end,
+                'can_start' => $m->billing_enabled && ! in_array($m->stripe_status, ['active', 'trialing', 'past_due'], true),
+                'can_manage' => (bool) $m->stripe_customer_id,
+            ] : null,
             'milestones' => in_array($quote->status, ['accepted', 'completed'], true)
                 ? $quote->milestones()->get(['id', 'title', 'description', 'status', 'due_date', 'sort_order'])->toArray()
                 : [],
@@ -62,11 +78,14 @@ class ClientProjectController extends Controller
         $data = $request->validate([
             'token' => ['required', 'string', 'size:64'],
             'accept_terms' => ['required', 'accepted'],
+            // Fogyasztó (magánszemély) kifejezett kérése a teljesítés megkezdésére a 14 napos elállási határidőn belül.
+            'early_start_consent' => ['sometimes', 'boolean'],
         ]);
         $quote = $this->findByToken($data['token']);
         // Lock while deciding to avoid duplicate acceptance from concurrent requests.
         $alreadyAccepted = false;
-        $quote = \Illuminate\Support\Facades\DB::transaction(function () use ($quote, &$alreadyAccepted) {
+        $earlyStart = (bool) ($data['early_start_consent'] ?? false);
+        $quote = \Illuminate\Support\Facades\DB::transaction(function () use ($quote, &$alreadyAccepted, $earlyStart) {
             $locked = QuoteRequest::whereKey($quote->id)->lockForUpdate()->firstOrFail();
             if ($locked->status === 'accepted' && $locked->proposal_accepted_at) {
                 $alreadyAccepted = true;
@@ -77,9 +96,32 @@ class ClientProjectController extends Controller
             }
             $locked->status = 'accepted';
             $locked->proposal_accepted_at = now();
+            // Elektronikus szerződéskötés bizonyítéka (Ptk. / Ekertv.): mit, mikor, melyik ÁSZF-fel fogadtak el.
+            $locked->terms_version = config('portfolio.terms_version');
+            $locked->acceptance_evidence = [
+                'proposal_fingerprint' => $locked->proposalFingerprint(),
+                'accepted_at' => now()->toIso8601String(),
+                'terms_version' => config('portfolio.terms_version'),
+                'price_huf' => $locked->quoted_price_huf,
+                'deposit_percent' => $locked->deposit_percent,
+                'early_start_consent' => $earlyStart,
+                'ip' => request()->ip(),
+                'user_agent' => mb_substr((string) request()->userAgent(), 0, 255),
+            ];
             $locked->save();
             return $locked;
         });
+        // Ekertv. 6. §: az elektronikus úton tett elfogadást haladéktalanul vissza kell igazolni az ügyfélnek.
+        if (! $alreadyAccepted && config('portfolio.mail_enabled') && ! in_array(config('mail.default'), ['log', 'array', 'null'], true)) {
+            $portalUrl = config('portfolio.frontend_url').'/ugyfel/projekt#'.$data['token'];
+            \Illuminate\Support\defer(function () use ($quote, $portalUrl) {
+                try {
+                    Mail::to($quote->email)->send(new CustomerAcceptanceConfirmation($quote, $portalUrl));
+                } catch (\Throwable $exception) {
+                    Log::error('Acceptance confirmation failed', ['quote_id' => $quote->id, 'exception_type' => $exception::class]);
+                }
+            });
+        }
         if (! $alreadyAccepted && config('portfolio.mail_enabled') && config('portfolio.admin_email') && ! in_array(config('mail.default'), ['log', 'array', 'null'], true)) {
             \Illuminate\Support\defer(function () use ($quote) {
                 try {

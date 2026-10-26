@@ -39,6 +39,22 @@ class QuoteRequest extends Model
         }
     }
 
+    /** Előleg forintban (az ajánlati ár deposit_percent %-a), vagy null, ha nincs előleg. */
+    public function depositAmount(): ?int
+    {
+        if (! $this->deposit_percent || ! $this->quoted_price_huf) return null;
+        return (int) round($this->quoted_price_huf * $this->deposit_percent / 100);
+    }
+
+    /** Az ajánlat lényeges tartalmának ujjlenyomata – az elfogadáskor rögzítjük (szerződéses bizonyíték). */
+    public function proposalFingerprint(): string
+    {
+        return hash('sha256', json_encode([
+            $this->id, $this->quoted_price_huf, $this->deposit_percent, $this->proposal_summary,
+            $this->proposal_schedule, $this->proposal_terms, $this->proposal_valid_until?->format('Y-m-d'),
+        ], JSON_UNESCAPED_UNICODE));
+    }
+
     public function messages(): HasMany
     {
         return $this->hasMany(ProjectMessage::class);
@@ -94,6 +110,9 @@ class QuoteRequest extends Model
             'proposal_accepted_at' => 'datetime',
             'portal_token_expires_at' => 'datetime',
             'quoted_price_huf' => 'integer',
+            'deposit_percent' => 'integer',
+            'deposit_paid_at' => 'datetime',
+            'acceptance_evidence' => 'array',
         ];
     }
 }

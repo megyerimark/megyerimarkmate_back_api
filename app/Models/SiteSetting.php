@@ -24,6 +24,10 @@ class SiteSetting extends Model
         'instagram_url' => '',
         'linkedin_url' => '',
         'github_url' => '',
+        // Trustindex (Google-vélemények) widget azonosítója. Üresen nincs külső widget és nincs süti-kérdés.
+        'reviews_widget_id' => '',
+        // A Google Cégprofil véleményírási linkje (pl. https://g.page/r/.../review).
+        'google_review_url' => '',
     ];
 
     public static function allPublic(): array

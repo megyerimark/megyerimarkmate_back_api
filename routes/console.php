@@ -19,3 +19,6 @@ Schedule::command('model:prune')->dailyAt('03:15');
 
 // Napi mentés: adatbázis + privát feltöltések, a legutóbbi N példány megtartásával.
 Schedule::command('portfolio:backup')->dailyAt('02:30')->withoutOverlapping();
+
+// Domain / tárhely / SSL lejárati emlékeztető (30, 14, 7, 3, 1, 0 nappal előtte).
+Schedule::command('portfolio:expiry-reminders')->dailyAt('08:10');

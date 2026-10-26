@@ -60,7 +60,7 @@ class PublicContentController extends Controller
     public function sitemap(): Response
     {
         $base = config('portfolio.frontend_url');
-        $pages = ['/', '/tervezo', '/ajanlatkeres', '/projekt-kviz', '/konzultacio', '/adatkezeles', '/impresszum'];
+        $pages = ['/', '/tervezo', '/ajanlatkeres', '/projekt-kviz', '/konzultacio', '/adatkezeles', '/impresszum', '/aszf'];
         $urls = collect($pages)->map(fn ($path) => ['loc' => $base.($path === '/' ? '/' : $path), 'lastmod' => null]);
         PortfolioProject::where('is_published', true)->where('is_demo', false)
             ->orderBy('sort_order')->get(['slug', 'updated_at'])

@@ -133,7 +133,19 @@ Ez futtatja naponta:
 - `model:prune` – GDPR: a `PORTFOLIO_RETENTION_MONTHS` (alapból 24) hónapja inaktív megkeresések, a hozzájuk tartozó fájlok és jegyzetek, valamint a régi konzultációs időpontok törlése. Elfogadott projektet és élő (aktív/szüneteltetett) karbantartási szerződést nem töröl.
 - a 13 hónapnál régebbi anonim statisztikai események törlése.
 
+**Online fizetés (Stripe).** Hivatalos SDK nélkül, közvetlen REST-hívásokkal (`App\Support\Stripe`). Előleg: az ajánlatban megadott % az elfogadás után kártyával (Checkout) vagy átutalással fizethető; a munka a befizetés után indul. Karbantartás: ha a megállapodásnál engedélyezed, az ügyfél a projektoldalán havi előfizetést indíthat, és a Stripe ügyfélportálján kezelheti (kártyacsere, lemondás). A fizetési állapot **csak** az aláírt webhookból frissül (`/api/stripe/webhook`; események: `checkout.session.completed`, `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted`); minden befizetés automatikusan bevételként kerül a Pénzügyekbe. **A Stripe-nyugta nem számla** – a számlát a számlázóprogramodban állítsd ki.
+
+**Szerződéskötés.** Az ajánlat elfogadása az ÁSZF-fel együtt elektronikus szerződéskötés: rögzül az ajánlat ujjlenyomata, az ÁSZF-verzió, az időpont, az IP és a böngésző, az ügyfél pedig azonnal visszaigazoló e-mailt kap (Ekertv. 6. §).
+
+**Ügyfélüzenet-értesítés.** Ha az ügyfél ír a projektoldalon, e-mailt kapsz (projektenként legfeljebb 10 percenként egyet), az adminban pedig olvasatlan-jelzés és toast jelenik meg.
+
+**Kész projektek + széf.** Élesített oldalak, domain-/tárhely-/SSL-lejáratok (naponta e-mail-emlékeztető 30, 14, 7, 3, 1 és 0 nappal előtte). A hozzáférési adatokat a böngésző titkosítja külön széfjelszóval (PBKDF2-SHA256 600 000 iteráció → AES-256-GCM); a szerver csak titkosított adatot lát. **Elfelejtett széfjelszó esetén a tartalom nem állítható vissza.**
+
+**Pénzügyek.** Bevétel/kiadás tételek, havi bruttó/nettó, ÁFA (AAM vagy 27%) és becsült átalányadó (SZJA, TB, szocho) 2026-os alapértékekkel, figyelmeztetéssel az AAM- és átalányadó-határ közelében. Ez becslés, nem könyvelés.
+
 **Oldaltérkép.** A `GET /api/sitemap.xml` a statikus oldalak mellett minden publikált referenciát (`/munkak/{slug}`) tartalmaz; a frontend `robots.txt` hivatkozik rá.
+
+**DDoS / árasztás elleni védelem.** Az alkalmazásszintű korlátok (globális 300 kérés/perc/IP + végpontonkénti korlátok) a kisebb támadásokat és a scrapereket fogják meg. Valódi DDoS ellen a szerver elé kell egy szolgáltatás – ajánlott az ingyenes **Cloudflare**: domain DNS-ét a Cloudflare-re irányítod (narancs felhő), SSL mód „Full (strict)”, „Bot Fight Mode” bekapcsolva, támadáskor „Under Attack Mode”. Ezután állítsd be: `TRUSTED_PROXIES=*` **és** a tárhelyen engedd a 80/443-as portot csak a Cloudflare IP-címeiről (különben a valódi IP hamisítható). Így a korlátok a látogató valódi IP-címére vonatkoznak.
 
 **Figyelés.** Javasolt egy ingyenes uptime-figyelő (pl. UptimeRobot) a `/up` címre, valamint hibafigyelő szolgáltatás (pl. Sentry) bekötése.
 

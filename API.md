@@ -4,7 +4,7 @@ Minden válasz JSON (kivéve a letöltéseket, a CSV-exportot és a `sitemap.xml
 
 **Hitelesítés:** az admin a Sanctum SPA-módját használja (munkamenet-süti + `XSRF-TOKEN`). Írási kérés előtt egyszer le kell kérni a `GET /sanctum/csrf-cookie` címet, és a kéréseket `withCredentials`-szel, `X-XSRF-TOKEN` fejléccel kell küldeni. Az Angular `HttpClient` ezt automatikusan intézi.
 
-**Kéréskorlátozás:** a túllépés `429`-es választ ad.
+**Kéréskorlátozás:** minden `/api/*` útvonalra globálisan 300 kérés/perc/IP (`PORTFOLIO_API_RATE_PER_MINUTE`), a végpontokon ennél szigorúbb egyedi korlát; a túllépés `429`-es választ ad.
 
 ## Nyilvános végpontok
 
@@ -15,6 +15,7 @@ Minden válasz JSON (kivéve a letöltéseket, a CSV-exportot és a `sitemap.xml
 | GET | `/api/projects/{slug}` | Egy publikált referencia | 120/perc |
 | GET | `/api/site-settings` | Nyilvános oldalbeállítások | 120/perc |
 | GET | `/api/testimonials` | Publikált ügyfélvélemények (max. 12) | 120/perc |
+| POST | `/api/stripe/webhook` | Stripe → szerver (aláírt események; csak a Stripe hívja) | 300/perc |
 | GET | `/api/sitemap.xml` | Dinamikus oldaltérkép (statikus oldalak + referenciák) | 60/perc |
 | POST | `/api/events` | Anonim eseményszámlálás (`page_view`, `cta_click`, …); süti és IP nélkül | 120/perc |
 | POST | `/api/quote-requests` | Ajánlatkérés beküldése → `201 { reference }` | 5/perc |
@@ -32,6 +33,11 @@ A privát kulcs (64 hex karakter) **mindig a kérés törzsében** (`token`) uta
 | POST | `/api/client/project/collaboration` | Üzenetek és dokumentumlista | 20/perc |
 | POST | `/api/client/project/messages` | Üzenet küldése (`body`, 2–3000 karakter) | 5/perc |
 | POST | `/api/client/project/documents/{id}/download` | Dokumentum letöltése | 30/perc |
+| POST | `/api/client/project/deposit/checkout` | Előleg fizetése: Stripe Checkout URL (`{ url }`) | 10/perc |
+| POST | `/api/client/project/maintenance/checkout` | Havi karbantartási előfizetés indítása (Checkout) | 10/perc |
+| POST | `/api/client/project/maintenance/portal` | Stripe ügyfélportál (kártya, számlák, lemondás) | 10/perc |
+
+Az elfogadás (`/accept`) opcionálisan `early_start_consent: true` mezőt is fogad (fogyasztói kérés a teljesítés 14 napon belüli megkezdésére); az elfogadáskor az ajánlat ujjlenyomata, az ÁSZF-verzió, az időpont, az IP és a böngésző rögzül (`acceptance_evidence`).
 
 ## Admin-hitelesítés (`routes/web.php`)
 
@@ -52,6 +58,7 @@ Mindegyikhez szükséges: bejelentkezett admin (`auth:sanctum`, `can:access-admi
 
 | Terület | Végpontok |
 |---|---|
+| Értesítések | `GET dashboard` → `messages_unread`, `unread_threads`, `sites_expiring`; a beszélgetés megnyitása olvasottá teszi az ügyfélüzeneteket |
 | Fiók és biztonság | `GET me` · `PUT password` · `GET security` (`two_factor_email_enabled`, `two_factor_required`) · `PUT security/two-factor` · `GET security/sessions` · `DELETE security/sessions/others` |
 | Áttekintés | `GET dashboard` · `GET growth` · `GET activities` · `GET quote-board` |
 | Ajánlatkérések | `GET quote-requests` (`q`, `status`, `per_page`) · `GET/PATCH/DELETE quote-requests/{id}` · `POST quote-requests/{id}/send-proposal` · `POST …/rotate-client-access` · `POST …/contacted` · `GET exports/quote-requests` (CSV) |
@@ -60,11 +67,14 @@ Mindegyikhez szükséges: bejelentkezett admin (`auth:sanctum`, `can:access-admi
 | Munkaterület | `GET workspace/projects` · `GET workspace/communications` · `GET/POST workspace/tasks` · `PATCH/DELETE workspace/tasks/{id}` · `GET/POST workspace/client-notes` · `DELETE workspace/client-notes/{id}` |
 | Ügyfelek | `GET clients` · `GET clients/quotes?email=` |
 | Konzultáció | `GET/POST consultations` · `DELETE consultations/{slot}` |
-| Karbantartás | `GET/POST maintenance-agreements` · `PATCH maintenance-agreements/{id}` |
+| Karbantartás | `GET/POST maintenance-agreements` · `PATCH maintenance-agreements/{id}` (`billing_enabled`) · `POST …/{id}/cancel-subscription` |
+| Előleg | `PATCH quote-requests/{id}` (`deposit_percent`, elküldés után zárolt) · `POST quote-requests/{id}/deposit-paid` (átutalás jóváírása) |
+| Kész projektek + széf | `GET/POST sites` · `PATCH/DELETE sites/{id}` · `GET/PUT vault` – a `vault_blob` csak böngészőben titkosított `{"v":1,"iv":…,"ct":…}` lehet |
+| Pénzügyek | `GET finance/summary?year=` · `GET finance/entries?year=&month=` · `POST/PATCH/DELETE finance/entries/{id}` · `PUT finance/settings` |
 | Tartalom | `services`, `projects`, `testimonials` (REST erőforrások) · `GET/PATCH site-settings` |
 
 **Ajánlatkérés állapotai:** `new → reviewing → quoted → accepted → completed`, illetve `rejected`. A `quoted` állapotot csak a `send-proposal` állíthatja be (sikeres e-mail után), az `accepted` állapotot csak az ügyfél. Elküldött ajánlat tartalma nem módosítható csendben.
 
 ## Ütemezett feladatok
 
-Lásd a README „Biztonság és üzemeltetés” részét: `portfolio:backup`, `model:prune`, eseménytörlés.
+Lásd a README „Biztonság és üzemeltetés” részét: `portfolio:backup`, `model:prune`, `portfolio:expiry-reminders`, eseménytörlés.
