@@ -14,6 +14,7 @@ class AdminSecurityController extends Controller
     {
         return response()->json(['data' => [
             'two_factor_email_enabled' => (bool) $request->user()->two_factor_email_enabled,
+            'two_factor_required' => (bool) config('portfolio.require_admin_2fa'),
             'session_driver' => config('session.driver'),
         ]])->header('Cache-Control', 'no-store');
     }
@@ -26,6 +27,9 @@ class AdminSecurityController extends Controller
         ]);
         if (! Hash::check($data['current_password'], $request->user()->password)) {
             return response()->json(['message' => 'A jelenlegi jelszó hibás.'], 422);
+        }
+        if (! $data['enabled'] && config('portfolio.require_admin_2fa')) {
+            return response()->json(['message' => 'Éles környezetben a kétlépcsős belépés kötelező, nem kapcsolható ki.'], 422);
         }
         if ($data['enabled'] && (! config('portfolio.mail_enabled') || in_array(config('mail.default'), ['log', 'array', 'null'], true))) {
             return response()->json(['message' => 'A kétlépcsős belépéshez működő SMTP-küldést kell beállítani.'], 503);

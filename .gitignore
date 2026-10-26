@@ -25,3 +25,7 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Régi biztonsági másolatok – a verziókezelés (git) helyettesíti őket
+*.before-v*
+/storage/app/backups

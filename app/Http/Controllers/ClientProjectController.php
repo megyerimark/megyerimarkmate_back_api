@@ -81,11 +81,13 @@ class ClientProjectController extends Controller
             return $locked;
         });
         if (! $alreadyAccepted && config('portfolio.mail_enabled') && config('portfolio.admin_email') && ! in_array(config('mail.default'), ['log', 'array', 'null'], true)) {
-            try {
-                Mail::to(config('portfolio.admin_email'))->send(new ProposalAccepted($quote));
-            } catch (\Throwable $exception) {
-                Log::error('Proposal acceptance notice failed', ['quote_id' => $quote->id, 'exception_type' => $exception::class]);
-            }
+            \Illuminate\Support\defer(function () use ($quote) {
+                try {
+                    Mail::to(config('portfolio.admin_email'))->send(new ProposalAccepted($quote));
+                } catch (\Throwable $exception) {
+                    Log::error('Proposal acceptance notice failed', ['quote_id' => $quote->id, 'exception_type' => $exception::class]);
+                }
+            });
         }
         return response()->json(['message' => 'Az ajánlat elfogadását rögzítettük.', 'data' => $this->publicData($quote)])
             ->header('Cache-Control', 'no-store, private');

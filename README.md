@@ -97,7 +97,8 @@ A próbaprojektben az e-mail küldés alapból **ki van kapcsolva** (`PORTFOLIO_
 - Teszteléshez beállítható `MAIL_MAILER=log`, ekkor a levelek a `storage/logs/laravel.log` fájlban jelennek meg.
 - Élesítéskor állíts be ellenőrzött SMTP-szolgáltatót (`MAIL_MAILER=smtp`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS`), és `PORTFOLIO_ADMIN_EMAIL` címet.
 - Ezután `PORTFOLIO_MAIL_ENABLED=true`. Az ügyfél-visszaigazolást `PORTFOLIO_CUSTOMER_RECEIPT_ENABLED` vezérli.
-- Az e-mailek jelenleg **szinkron** küldődnek. Sikertelen küldésnél a már eltárolt ajánlat megmarad, az API továbbra is 201-es választ küld; a hiba típusa bekerül a Laravel naplóba. Küldési garanciához később queue/outbox feldolgozást is ki lehet építeni.
+- Az értesítő e-mailek (új ajánlatkérés, ügyfél-visszaigazolás, konzultációfoglalás, ajánlat-elfogadás) a **válasz elküldése után** mennek ki (`defer()`), így a látogatónak nem kell az SMTP-re várnia, és nincs szükség külön queue workerre. Sikertelen küldésnél a már eltárolt adat megmarad, a hiba típusa bekerül a naplóba.
+- Az ajánlatküldés, a privát link cseréje, a belépési kód és a jelszó-visszaállítás szándékosan **szinkron**: az állapot csak sikeres kézbesítés után változik.
 
 ## 5. Referenciaképek
 
@@ -109,16 +110,44 @@ A képek a `storage/app/public/portfolio` mappába kerülnek; `php artisan stora
 php artisan test
 ```
 
-A tesztek SQLite memóriabeli adatbázist használnak (a PHP `pdo_sqlite` bővítménye szükséges); a képfeltöltési teszthez a képfájlok validálását támogató PHP-környezet szükséges. **A csomagot ebben a környezetben PHP szintaxis-ellenőrzésnek vetettem alá, de a teljes tesztfuttatást nem tudtam elvégezni Composer/vendor és SQLite PHP-bővítmény hiányában.** A saját gépeden futtasd le a `php artisan test` parancsot telepítés után.
+A tesztek SQLite memóriabeli adatbázist használnak (a PHP `pdo_sqlite` bővítménye szükséges); a képfeltöltési teszthez a képfájlok validálását támogató PHP-környezet szükséges. A `SecurityHardeningTest` a kötelező 2FA-t, a fiókonkénti belépéskorlátot, a biztonsági fejléceket, az adatmegőrzési törlést, az oldaltérképet és a mentést ellenőrzi. A GitHub Actions (`.github/workflows/ci.yml`) minden push után lefuttatja a teszteket és a `composer audit` sérülékenység-ellenőrzést.
 
-## 7. Élesítés előtt kötelező ellenőrzések
+**PHP-verzió:** a `composer.lock` Symfony 8.1-et rögzít, ezért **PHP 8.4 szükséges** (a tárhelyen is!).
+
+## 7. Biztonság és üzemeltetés
+
+**Kötelező kétlépcsős belépés.** `APP_ENV=production` esetén az admin e-mailes 2FA automatikusan kötelező és nem kapcsolható ki (`PORTFOLIO_REQUIRE_ADMIN_2FA`). Ezért élesítés előtt állíts be működő SMTP-t, különben nem tudsz belépni.
+
+**Belépési korlát.** IP-címenként 5 próbálkozás / perc **és** e-mail-címenként 20 / óra, így sok IP-címről sem lehet egy fiók jelszavát próbálgatni.
+
+**Biztonsági fejlécek.** Az `App\Http\Middleware\SecurityHeaders` minden API-válaszhoz beállítja: CSP, HSTS (HTTPS-en), X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy. Ha a tárhely proxy mögött van, add meg a `TRUSTED_PROXIES` értékét.
+
+**Ütemezett feladatok.** Egyetlen cron-sor kell a szerveren (cPanel → Cron Jobs):
+
+```
+* * * * * cd /útvonal/a/backendhez && php artisan schedule:run >> /dev/null 2>&1
+```
+
+Ez futtatja naponta:
+- `portfolio:backup` – adatbázis + feltöltött fájlok mentése `storage/app/backups` alá, a legutóbbi `PORTFOLIO_BACKUP_KEEP` példány megtartásával. **A mentéseket rendszeresen töltsd le máshová is**, és évente legalább egyszer próbáld ki a visszaállítást.
+- `model:prune` – GDPR: a `PORTFOLIO_RETENTION_MONTHS` (alapból 24) hónapja inaktív megkeresések, a hozzájuk tartozó fájlok és jegyzetek, valamint a régi konzultációs időpontok törlése. Elfogadott projektet és élő (aktív/szüneteltetett) karbantartási szerződést nem töröl.
+- a 13 hónapnál régebbi anonim statisztikai események törlése.
+
+**Oldaltérkép.** A `GET /api/sitemap.xml` a statikus oldalak mellett minden publikált referenciát (`/munkak/{slug}`) tartalmaz; a frontend `robots.txt` hivatkozik rá.
+
+**Figyelés.** Javasolt egy ingyenes uptime-figyelő (pl. UptimeRobot) a `/up` címre, valamint hibafigyelő szolgáltatás (pl. Sentry) bekötése.
+
+## 8. Élesítés előtt kötelező ellenőrzések
+
+Kiinduló beállítások: **[.env.production.example](.env.production.example)**.
+
 
 - HTTPS, erős adminjelszó, `APP_DEBUG=false`, korrekt domain/cookie/CORS beállítások.
 - Saját domainről érkező SMTP és e-mail kézbesítési próba.
 - Közzétett adatkezelési tájékoztató, GDPR szerinti adatmegőrzési / törlési folyamat.
 - CAPTCHA vagy további botvédelem; a honeypot és rate limit önmagukban nem állítják meg az összes spamet.
 - Valós képeket és ügyfélreferenciákat csak jogos felhasználással publikálj.
-- Fájlok/tárhely feltöltési jogosultságok, adatbázismentés, naplózás, restore próba.
+- Fájlok/tárhely feltöltési jogosultságok, cron-sor beállítva, első mentés és restore próba.
 - Angular admin és ajánlatkérő integrációteszt.
 
 A teljes útvonallista és JSON-mezők: **[API.md](API.md)**.

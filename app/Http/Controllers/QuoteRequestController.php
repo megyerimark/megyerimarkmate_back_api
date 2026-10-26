@@ -26,22 +26,25 @@ class QuoteRequestController extends Controller
         $quote->save();
 
         // Never put portal access secrets in the log / array mail transports.
+        // Az e-maileket a válasz elküldése UTÁN küldjük ki: a látogató nem vár az SMTP-re.
         if (config('portfolio.mail_enabled') && ! in_array(config('mail.default'), ['log', 'array', 'null'], true)) {
-            if ($owner = config('portfolio.admin_email')) {
-                try {
-                    Mail::to($owner)->send(new NewQuoteNotification($quote));
-                } catch (\Throwable $exception) {
-                    Log::error('Owner quote notification failed', ['quote_id' => $quote->id, 'exception_type' => $exception::class]);
+            \Illuminate\Support\defer(function () use ($quote, $portalToken) {
+                if ($owner = config('portfolio.admin_email')) {
+                    try {
+                        Mail::to($owner)->send(new NewQuoteNotification($quote));
+                    } catch (\Throwable $exception) {
+                        Log::error('Owner quote notification failed', ['quote_id' => $quote->id, 'exception_type' => $exception::class]);
+                    }
                 }
-            }
-            if (config('portfolio.customer_receipt_enabled')) {
-                try {
-                    Mail::to($quote->email)->send(new CustomerQuoteConfirmation($quote, config('portfolio.frontend_url').'/ugyfel/projekt#'.$portalToken));
-                } catch (\Throwable $exception) {
-                    // A request already stored must not be submitted again because SMTP failed.
-                    Log::error('Customer quote receipt failed', ['quote_id' => $quote->id, 'exception_type' => $exception::class]);
+                if (config('portfolio.customer_receipt_enabled')) {
+                    try {
+                        Mail::to($quote->email)->send(new CustomerQuoteConfirmation($quote, config('portfolio.frontend_url').'/ugyfel/projekt#'.$portalToken));
+                    } catch (\Throwable $exception) {
+                        // A request already stored must not be submitted again because SMTP failed.
+                        Log::error('Customer quote receipt failed', ['quote_id' => $quote->id, 'exception_type' => $exception::class]);
+                    }
                 }
-            }
+            });
         }
 
         return response()->json([

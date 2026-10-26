@@ -47,13 +47,16 @@ class ConsultationController extends Controller
         });
         $booking->load('slot');
         if (config('portfolio.mail_enabled') && ! in_array(config('mail.default'), ['log', 'array', 'null'], true)) {
-            foreach (array_filter([$booking->email, config('portfolio.admin_email')]) as $email) {
-                try {
-                    Mail::to($email)->send(new ConsultationBooked($booking, $email === $booking->email));
-                } catch (\Throwable $exception) {
-                    Log::error('Consultation confirmation failed', ['booking_id' => $booking->id, 'exception_type' => $exception::class]);
+            // Küldés a válasz után, hogy a foglalás azonnal visszaigazolódjon.
+            \Illuminate\Support\defer(function () use ($booking) {
+                foreach (array_filter([$booking->email, config('portfolio.admin_email')]) as $email) {
+                    try {
+                        Mail::to($email)->send(new ConsultationBooked($booking, $email === $booking->email));
+                    } catch (\Throwable $exception) {
+                        Log::error('Consultation confirmation failed', ['booking_id' => $booking->id, 'exception_type' => $exception::class]);
+                    }
                 }
-            }
+            });
         }
         return response()->json([
             'message' => 'Az időpontot lefoglaltuk.',

@@ -6,4 +6,18 @@ return [
     'mail_enabled' => filter_var(env('PORTFOLIO_MAIL_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
     'customer_receipt_enabled' => filter_var(env('PORTFOLIO_CUSTOMER_RECEIPT_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
     'client_access_days' => max(1, (int) env('PORTFOLIO_CLIENT_ACCESS_DAYS', 90)),
+
+    // Éles környezetben az admin kétlépcsős belépése kötelező, és nem kapcsolható ki.
+    'require_admin_2fa' => filter_var(
+        env('PORTFOLIO_REQUIRE_ADMIN_2FA', env('APP_ENV') === 'production'),
+        FILTER_VALIDATE_BOOLEAN,
+    ),
+
+    // GDPR – korlátozott tárolhatóság: a lezárt / inaktív megkeresések ennyi hónap után törlődnek.
+    // 0 = automatikus törlés kikapcsolva.
+    'retention_months' => max(0, (int) env('PORTFOLIO_RETENTION_MONTHS', 24)),
+
+    // Napi mentés (php artisan portfolio:backup). A mentéseket rendszeresen töltsd le a szerverről is!
+    'backup_path' => env('PORTFOLIO_BACKUP_PATH', storage_path('app/backups')),
+    'backup_keep' => max(1, (int) env('PORTFOLIO_BACKUP_KEEP', 14)),
 ];

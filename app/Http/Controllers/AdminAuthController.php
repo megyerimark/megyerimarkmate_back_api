@@ -32,7 +32,7 @@ class AdminAuthController extends Controller
 
         $request->session()->regenerate();
         $request->session()->forget('admin_two_factor_verified');
-        if ($request->user()->two_factor_email_enabled) {
+        if ($request->user()->requiresTwoFactor()) {
             try {
                 $this->sendLoginCode($request);
             } catch (Throwable $e) {
@@ -70,7 +70,7 @@ class AdminAuthController extends Controller
         $user = $request->user();
         abort_unless($user->is_admin, 403);
         $challenge = $request->session()->get('admin_two_factor_challenge');
-        if (! $user->two_factor_email_enabled || ! is_array($challenge) ||
+        if (! $user->requiresTwoFactor() || ! is_array($challenge) ||
             ($challenge['user_id'] ?? null) !== $user->id ||
             ($challenge['expires_at'] ?? 0) < now()->timestamp ||
             ($challenge['attempts'] ?? 5) >= 5) {
@@ -89,7 +89,7 @@ class AdminAuthController extends Controller
 
     public function resendLoginCode(Request $request): JsonResponse
     {
-        abort_unless($request->user()->is_admin && $request->user()->two_factor_email_enabled, 403);
+        abort_unless($request->user()->is_admin && $request->user()->requiresTwoFactor(), 403);
         try {
             $this->sendLoginCode($request);
         } catch (Throwable $e) {

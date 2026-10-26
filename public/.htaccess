@@ -24,9 +24,8 @@
     RewriteRule ^ index.php [L]
 </IfModule>
 
+# A biztonsági fejléceket az App\Http\Middleware\SecurityHeaders állítja be,
+# így Apache-on és nginxen is egyformán működnek (és nem duplikálódnak).
 <IfModule mod_headers.c>
-    Header always set X-Content-Type-Options "nosniff"
-    Header always set X-Frame-Options "DENY"
-    Header always set Referrer-Policy "strict-origin-when-cross-origin"
-    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    Header always unset X-Powered-By
 </IfModule>
