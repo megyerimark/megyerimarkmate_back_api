@@ -60,6 +60,21 @@ return [
             'report' => false,
         ],
 
+        // Külső mentés S3-kompatibilis tárhelyre (Backblaze B2, Cloudflare R2, Wasabi, AWS S3).
+        // Használathoz: composer require league/flysystem-aws-s3-v3 "^3.0", majd PORTFOLIO_BACKUP_DISK=backup_offsite.
+        'backup_offsite' => [
+            'driver' => 's3',
+            'key' => env('BACKUP_S3_KEY'),
+            'secret' => env('BACKUP_S3_SECRET'),
+            'region' => env('BACKUP_S3_REGION', 'auto'),
+            'bucket' => env('BACKUP_S3_BUCKET'),
+            'endpoint' => env('BACKUP_S3_ENDPOINT'),
+            'root' => env('BACKUP_S3_ROOT', 'portfolio-backups'),
+            'use_path_style_endpoint' => env('BACKUP_S3_PATH_STYLE', true),
+            'throw' => true,
+            'report' => false,
+        ],
+
     ],
 
     /*

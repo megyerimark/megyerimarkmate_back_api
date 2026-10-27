@@ -28,7 +28,7 @@ class ExpiryReminders extends Command
             }
         }
         $owner = config('portfolio.admin_email');
-        if (! $lines || ! $owner || ! config('portfolio.mail_enabled') || in_array(config('mail.default'), ['log', 'array', 'null'], true)) {
+        if (! $lines || ! $owner || ! \App\Support\Mailer::canSend()) {
             $this->info(count($lines).' esedékes lejárat.');
             return self::SUCCESS;
         }

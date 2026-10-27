@@ -51,7 +51,7 @@ class NewsletterController extends Controller
         $subscriber->unsubscribed_at = null;
         $subscriber->save();
 
-        if (config('portfolio.mail_enabled') && ! in_array(config('mail.default'), ['log', 'array', 'null'], true)) {
+        if (\App\Support\Mailer::canSend()) {
             $link = config('portfolio.frontend_url').'/hirlevel/megerosites#'.$token;
             \Illuminate\Support\defer(function () use ($subscriber, $link) {
                 try {

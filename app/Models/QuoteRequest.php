@@ -19,7 +19,7 @@ class QuoteRequest extends Model
         'source', 'utm_source', 'utm_medium', 'utm_campaign', 'referrer_host', 'landing_path',
     ];
 
-    protected $hidden = ['portal_token_hash', 'portal_token_encrypted'];
+    protected $hidden = ['portal_token_hash', 'portal_token_encrypted', 'deposit_checkout_url'];
 
     public function milestones(): HasMany
     {
@@ -112,6 +112,7 @@ class QuoteRequest extends Model
             'quoted_price_huf' => 'integer',
             'deposit_percent' => 'integer',
             'deposit_paid_at' => 'datetime',
+            'deposit_checkout_expires_at' => 'datetime',
             'acceptance_evidence' => 'array',
         ];
     }

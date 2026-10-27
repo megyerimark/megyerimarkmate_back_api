@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  schedule:
+    # Hetente sérülékenység-ellenőrzés akkor is, ha nem változott a kód.
+    - cron: '0 6 * * 1'
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo_sqlite, sqlite3, sodium, intl, gd, zip
+          coverage: none
+      - name: Composer-függőségek
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Környezet
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+      - name: Tesztek
+        run: php artisan test
+      - name: Sérülékeny függőségek keresése
+        run: composer audit --no-dev

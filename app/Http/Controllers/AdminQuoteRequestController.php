@@ -98,7 +98,7 @@ class AdminQuoteRequestController extends Controller
 
     public function sendProposal(Request $request, QuoteRequest $quoteRequest): JsonResponse
     {
-        if (! config('portfolio.mail_enabled') || in_array(config('mail.default'), ['log', 'array', 'null'], true)) {
+        if (! \App\Support\Mailer::canSend()) {
             return response()->json(['message' => 'Valós e-mail-küldés nincs beállítva. Ellenőrizd a MAIL_MAILER és PORTFOLIO_MAIL_ENABLED beállításokat.'], 503);
         }
         if ($quoteRequest->quoted_at || $quoteRequest->proposal_accepted_at) {
@@ -149,7 +149,7 @@ class AdminQuoteRequestController extends Controller
 
     public function rotateClientAccess(Request $request, QuoteRequest $quoteRequest): JsonResponse
     {
-        if (! config('portfolio.mail_enabled') || in_array(config('mail.default'), ['log', 'array', 'null'], true)) {
+        if (! \App\Support\Mailer::canSend()) {
             return response()->json(['message' => 'Valós SMTP-küldés szükséges az új link biztonságos kézbesítéséhez.'], 503);
         }
         $token = bin2hex(random_bytes(32));
@@ -181,6 +181,8 @@ class AdminQuoteRequestController extends Controller
         }
         $date = $data['paid_on'] ?? now()->toDateString();
         $quoteRequest->forceFill(['deposit_paid_at' => $date.' '.now()->format('H:i:s'), 'deposit_paid_via' => 'transfer'])->save();
+        // Átutalással rendezve: a nyitott kártyás fizetési oldal ne maradjon fizethető (dupla fizetés ellen).
+        \App\Support\DepositCheckout::expireOpen($quoteRequest);
         \App\Models\FinanceEntry::create([
             'type' => 'income', 'occurred_on' => $date, 'amount_huf' => $amount,
             'vat_rate' => \App\Models\AdminSetting::finance()['vat_registered'] ? 27 : 0,
@@ -206,10 +208,7 @@ class AdminQuoteRequestController extends Controller
         AdminAudit::record($request, 'exported', 'quote_requests');
         $header = ['Azonosító', 'Beérkezett', 'Név', 'E-mail', 'Telefon', 'Cég', 'Weboldaltípus', 'Státusz', 'Költségkeret',
             'Ajánlat összege (Ft)', 'Forrás', 'Hivatkozó oldal', 'Kampány', 'Első válasz', 'Utánkövetés', 'Elfogadva'];
-        $safe = static function (mixed $value): string {
-            $text = (string) ($value ?? '');
-            return preg_match('/^[=+\-@\t\r]/', $text) === 1 ? "'".$text : $text;
-        };
+        $safe = [\App\Support\Csv::class, 'safe'];
 
         return response()->streamDownload(function () use ($header, $safe, $filters) {
             $out = fopen('php://output', 'w');

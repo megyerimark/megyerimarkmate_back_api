@@ -29,4 +29,11 @@ return [
     // Napi mentés (php artisan portfolio:backup). A mentéseket rendszeresen töltsd le a szerverről is!
     'backup_path' => env('PORTFOLIO_BACKUP_PATH', storage_path('app/backups')),
     'backup_keep' => max(1, (int) env('PORTFOLIO_BACKUP_KEEP', 14)),
+    // Mentés titkosítása (libsodium XChaCha20-Poly1305). Kulcs: php artisan portfolio:backup-key
+    // A kulcsot a szerveren KÍVÜL is őrizd meg (jelszókezelő) – nélküle a mentés nem állítható vissza!
+    'backup_key' => env('PORTFOLIO_BACKUP_KEY'),
+    // Külső (szerveren kívüli) másolat: egy config/filesystems.php-ban megadott disk neve, pl. „backup_offsite”.
+    // Csak titkosított mentés kerül fel. Üresen hagyva csak helyi mentés készül.
+    'backup_disk' => env('PORTFOLIO_BACKUP_DISK'),
+    'backup_disk_keep' => max(1, (int) env('PORTFOLIO_BACKUP_DISK_KEEP', 30)),
 ];

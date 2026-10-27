@@ -65,7 +65,7 @@ Mindegyikhez szükséges: bejelentkezett admin (`auth:sanctum`, `can:access-admi
 |---|---|
 | Értesítések | `GET dashboard` → `messages_unread`, `unread_threads`, `sites_expiring`; a beszélgetés megnyitása olvasottá teszi az ügyfélüzeneteket |
 | Rendszerállapot | `GET system-status` → backend-verzió, függő migrációk, hiányzó táblák, debug/HTTPS/e-mail/2FA/Stripe/cron/mentés ellenőrzés (titkot nem ad vissza) |
-| Fiók és biztonság | `GET me` · `PUT password` · `GET security` (`two_factor_email_enabled`, `two_factor_required`) · `PUT security/two-factor` · `GET security/sessions` · `DELETE security/sessions/others` |
+| Fiók és biztonság | `GET me` · `PUT password` · `GET security` (`two_factor_email_enabled`, `two_factor_required`, `totp_enabled`, `recovery_codes_remaining`) · `PUT security/two-factor` · `POST security/totp/setup` {current_password} → {secret, otpauth_uri} · `POST security/totp/confirm` {code} → {recovery_codes} · `POST security/totp/disable` {current_password, code} · `POST security/totp/recovery-codes` {current_password} · `GET security/sessions` · `DELETE security/sessions/others` |
 | Áttekintés | `GET dashboard` · `GET growth` · `GET activities` · `GET quote-board` |
 | Ajánlatkérések | `GET quote-requests` (`q`, `status`, `per_page`) · `GET/PATCH/DELETE quote-requests/{id}` · `POST quote-requests/{id}/send-proposal` · `POST …/rotate-client-access` · `POST …/contacted` · `GET exports/quote-requests` (CSV) |
 | Együttműködés | `GET quote-requests/{id}/collaboration` · `POST …/messages` · `POST …/documents` (PDF/JPG/PNG/WebP, max. 10 MB) · `GET …/documents/{doc}/download` · `DELETE …/documents/{doc}` |
@@ -89,3 +89,15 @@ Lásd a README „Biztonság és üzemeltetés” részét: `portfolio:backup`, 
 ## Hibaválaszok
 
 Ha egy admin-végpont mögött hiányzik az adatbázistábla (elmaradt migráció), a válasz `503 { error_code: "MIGRATION_REQUIRED" }`, és az admin felület magyarul kiírja a teendőt (`bash deploy.sh` / `php artisan migrate --force`). A validációs üzenetek magyarul érkeznek (`lang/hu`).
+
+### Belépés hitelesítő alkalmazással (TOTP)
+
+`POST /admin/login` → `202 {requires_two_factor: true, two_factor_method: "totp" | "email"}`. TOTP esetén nem megy e-mail;
+a `POST /admin/verify-login` {code} a 6 jegyű app-kódot vagy egy `XXXXX-XXXXX` helyreállítási kódot fogad el (mindkettő egyszer használható).
+TOTP-nál a `resend-login-code` 422-t ad.
+
+### Ajánlat elfogadása – fizetés
+
+`POST /api/client/project/accept` válasza: `{ data, payment_url, payment_status }`, ahol `payment_status`:
+`redirect` (van `payment_url`, irányíts át), `failed` (a Stripe-hívás hibázott – az ok a Rendszerállapotban),
+`transfer_only` (előleg jár, de nincs `STRIPE_SECRET`), `none` (nincs fizetendő előleg).

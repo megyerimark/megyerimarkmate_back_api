@@ -70,6 +70,10 @@ Route::middleware(['auth:sanctum', 'can:access-admin', 'admin.2fa'])->prefix('ad
     Route::get('/security', [AdminSecurityController::class, 'status']);
     Route::get('/system-status', [AdminSystemStatusController::class, 'index']);
     Route::put('/security/two-factor', [AdminSecurityController::class, 'setTwoFactor'])->middleware('throttle:5,1,put--security-two-factor');
+    Route::post('/security/totp/setup', [AdminSecurityController::class, 'totpSetup'])->middleware('throttle:5,1,post--security-totp-setup');
+    Route::post('/security/totp/confirm', [AdminSecurityController::class, 'totpConfirm'])->middleware('throttle:5,1,post--security-totp-confirm');
+    Route::post('/security/totp/disable', [AdminSecurityController::class, 'totpDisable'])->middleware('throttle:5,1,post--security-totp-disable');
+    Route::post('/security/totp/recovery-codes', [AdminSecurityController::class, 'totpRecoveryCodes'])->middleware('throttle:5,1,post--security-totp-recovery-codes');
     Route::get('/security/sessions', [AdminSecurityController::class, 'sessions']);
     Route::delete('/security/sessions/others', [AdminSecurityController::class, 'revokeOtherSessions'])->middleware('throttle:5,1,delete--security-sessions-others');
     Route::get('/dashboard', [AdminDashboardController::class, 'index']);

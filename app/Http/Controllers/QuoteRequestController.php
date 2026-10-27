@@ -33,7 +33,7 @@ class QuoteRequestController extends Controller
 
         // Never put portal access secrets in the log / array mail transports.
         // Az e-maileket a válasz elküldése UTÁN küldjük ki: a látogató nem vár az SMTP-re.
-        if (config('portfolio.mail_enabled') && ! in_array(config('mail.default'), ['log', 'array', 'null'], true)) {
+        if (\App\Support\Mailer::canSend()) {
             \Illuminate\Support\defer(function () use ($quote, $portalToken) {
                 if ($owner = config('portfolio.admin_email')) {
                     try {

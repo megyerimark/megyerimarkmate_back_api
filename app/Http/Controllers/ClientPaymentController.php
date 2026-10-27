@@ -19,8 +19,7 @@ class ClientPaymentController extends Controller
     private function quote(Request $request): QuoteRequest
     {
         $data = $request->validate(['token' => ['required', 'string', 'regex:/\A[a-f0-9]{64}\z/D']]);
-        return QuoteRequest::where('portal_token_hash', hash('sha256', $data['token']))
-            ->where('portal_token_expires_at', '>', now())->firstOrFail();
+        return \App\Support\ClientAccess::quote($data['token']);
     }
 
     private function ensureStripe(): void
@@ -47,6 +46,8 @@ class ClientPaymentController extends Controller
         }
         try {
             $url = \App\Support\DepositCheckout::create($quote);
+        } catch (\App\Support\DepositPaymentPending) {
+            throw ValidationException::withMessages(['payment' => 'Az előleg befizetése már megtörtént, a visszaigazolás pár percen belül megjelenik. Nem kell újra fizetned.']);
         } catch (Throwable $e) {
             Log::error('Stripe deposit checkout failed', ['quote_id' => $quote->id, 'error' => $e->getMessage()]);
             throw ValidationException::withMessages(['payment' => 'A fizetési oldal most nem nyitható meg. Próbáld újra pár perc múlva.']);

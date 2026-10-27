@@ -46,7 +46,7 @@ class ConsultationController extends Controller
             ]);
         });
         $booking->load('slot');
-        if (config('portfolio.mail_enabled') && ! in_array(config('mail.default'), ['log', 'array', 'null'], true)) {
+        if (\App\Support\Mailer::canSend()) {
             // Küldés a válasz után, hogy a foglalás azonnal visszaigazolódjon.
             \Illuminate\Support\defer(function () use ($booking) {
                 foreach (array_filter([$booking->email, config('portfolio.admin_email')]) as $email) {

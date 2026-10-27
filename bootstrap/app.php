@@ -31,6 +31,10 @@ return Application::configure(basePath: dirname(__DIR__))
             if (! $request->is('api/*')) return null;
             if (preg_match('/no such table|no such column|Base table or view not found|Unknown column|doesn\'t exist/i', $e->getMessage())) {
                 report($e);
+                // A teendőt csak az admin látja; a nyilvános látogató nem kap belső üzemeltetési részletet.
+                if (! $request->is('api/admin/*')) {
+                    return response()->json(['message' => 'A szolgáltatás átmenetileg nem elérhető. Próbáld újra pár perc múlva.'], 503);
+                }
                 return response()->json([
                     'message' => 'Az adatbázis nincs frissítve az új verzióhoz. A szerveren futtasd: php artisan migrate --force',
                     'error_code' => 'MIGRATION_REQUIRED',

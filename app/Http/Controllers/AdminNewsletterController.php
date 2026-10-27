@@ -44,7 +44,8 @@ class AdminNewsletterController extends Controller
             fputcsv($out, ['email', 'nyelv', 'forrás', 'megerősítve'], ';');
             NewsletterSubscriber::where('status', 'confirmed')->orderBy('id')->chunk(500, function ($rows) use ($out) {
                 foreach ($rows as $row) {
-                    fputcsv($out, [$row->email, $row->lang, $row->source, $row->confirmed_at?->timezone('Europe/Budapest')->format('Y-m-d H:i')], ';');
+                    // Képlet-injektálás ellen (Excel): a =, +, -, @ kezdetű cellák elé aposztróf kerül.
+                    fputcsv($out, array_map([\App\Support\Csv::class, 'safe'], [$row->email, $row->lang, $row->source, $row->confirmed_at?->timezone('Europe/Budapest')->format('Y-m-d H:i')]), ';');
                 }
             });
             fclose($out);

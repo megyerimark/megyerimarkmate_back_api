@@ -16,12 +16,7 @@ class ClientProjectController extends Controller
 {
     private function findByToken(string $token): QuoteRequest
     {
-        if (! preg_match('/\A[a-f0-9]{64}\z/D', $token)) {
-            abort(404);
-        }
-        return QuoteRequest::where('portal_token_hash', hash('sha256', $token))
-            ->where('portal_token_expires_at', '>', now())
-            ->firstOrFail();
+        return \App\Support\ClientAccess::quote($token);
     }
 
     private function publicData(QuoteRequest $quote): array
@@ -112,7 +107,7 @@ class ClientProjectController extends Controller
             return $locked;
         });
         // Ekertv. 6. §: az elektronikus úton tett elfogadást haladéktalanul vissza kell igazolni az ügyfélnek.
-        if (! $alreadyAccepted && config('portfolio.mail_enabled') && ! in_array(config('mail.default'), ['log', 'array', 'null'], true)) {
+        if (! $alreadyAccepted && \App\Support\Mailer::canSend()) {
             $portalUrl = config('portfolio.frontend_url').'/ugyfel/projekt#'.$data['token'];
             \Illuminate\Support\defer(function () use ($quote, $portalUrl) {
                 try {
@@ -122,7 +117,7 @@ class ClientProjectController extends Controller
                 }
             });
         }
-        if (! $alreadyAccepted && config('portfolio.mail_enabled') && config('portfolio.admin_email') && ! in_array(config('mail.default'), ['log', 'array', 'null'], true)) {
+        if (! $alreadyAccepted && \App\Support\Mailer::canSend() && config('portfolio.admin_email')) {
             \Illuminate\Support\defer(function () use ($quote) {
                 try {
                     Mail::to(config('portfolio.admin_email'))->send(new ProposalAccepted($quote));
@@ -132,15 +127,24 @@ class ClientProjectController extends Controller
             });
         }
         // Kötelező előleg: elfogadás után azonnal a Stripe fizetési oldalára irányítjuk az ügyfelet.
+        // payment_status: redirect | failed | transfer_only (nincs Stripe) | none (nincs fizetendő előleg)
         $paymentUrl = null;
+        $paymentStatus = 'none';
         if (\App\Support\DepositCheckout::due($quote)) {
             try {
                 $paymentUrl = \App\Support\DepositCheckout::create($quote);
+                $paymentStatus = 'redirect';
             } catch (\Throwable $exception) {
+                $paymentStatus = 'failed';
                 Log::error('Deposit checkout after acceptance failed', ['quote_id' => $quote->id, 'error' => $exception->getMessage()]);
             }
+        } elseif ($quote->depositAmount() && ! $quote->deposit_paid_at) {
+            $paymentStatus = 'transfer_only';
+            Log::warning('Deposit due but online payment is not configured (STRIPE_SECRET)', ['quote_id' => $quote->id]);
+        } elseif ($quote->status === 'accepted' && ! $quote->depositAmount()) {
+            Log::info('Accepted proposal has no deposit set, no payment redirect', ['quote_id' => $quote->id]);
         }
-        return response()->json(['message' => 'Az ajánlat elfogadását rögzítettük.', 'data' => $this->publicData($quote), 'payment_url' => $paymentUrl])
+        return response()->json(['message' => 'Az ajánlat elfogadását rögzítettük.', 'data' => $this->publicData($quote), 'payment_url' => $paymentUrl, 'payment_status' => $paymentStatus])
             ->header('Cache-Control', 'no-store, private');
     }
 }

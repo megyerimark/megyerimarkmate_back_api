@@ -132,6 +132,8 @@ A tesztek SQLite memóriabeli adatbázist használnak (a PHP `pdo_sqlite` bőví
 
 ## 7. Biztonság és üzemeltetés
 
+**Hitelesítő alkalmazás (ajánlott).** Admin → Fiók és biztonság → *Hitelesítő alkalmazás*. Bekapcsolva a belépéshez nem e-mailes kód kell, hanem a telefonos app (Google/Microsoft Authenticator, 1Password, Bitwarden) 6 jegyű kódja; ha nincs nálad a telefon, a 10 egyszer használatos **helyreállítási kód** egyike. Így egy feltört e-mail-fiókkal (jelszó-visszaállítás + e-mailes kód) sem vehető át az admin, és a belépés SMTP-hiba esetén is működik. A titok titkosítva (APP_KEY) tárolódik; egy kód nem használható fel kétszer.
+
 **Kötelező kétlépcsős belépés.** `APP_ENV=production` esetén az admin e-mailes 2FA automatikusan kötelező és nem kapcsolható ki (`PORTFOLIO_REQUIRE_ADMIN_2FA`). Ezért élesítés előtt állíts be működő SMTP-t, különben nem tudsz belépni.
 
 **Belépési korlát.** IP-címenként 5 próbálkozás / perc **és** e-mail-címenként 20 / óra, így sok IP-címről sem lehet egy fiók jelszavát próbálgatni.
@@ -145,11 +147,13 @@ A tesztek SQLite memóriabeli adatbázist használnak (a PHP `pdo_sqlite` bőví
 ```
 
 Ez futtatja naponta:
-- `portfolio:backup` – adatbázis + feltöltött fájlok mentése `storage/app/backups` alá, a legutóbbi `PORTFOLIO_BACKUP_KEEP` példány megtartásával. **A mentéseket rendszeresen töltsd le máshová is**, és évente legalább egyszer próbáld ki a visszaállítást.
+- `portfolio:backup` – adatbázis + feltöltött fájlok mentése `storage/app/backups` alá, a legutóbbi `PORTFOLIO_BACKUP_KEEP` példány megtartásával. Évente legalább egyszer próbáld ki a visszaállítást.
+  - **Titkosítás:** `php artisan portfolio:backup-key` → a kiírt `PORTFOLIO_BACKUP_KEY=...` sort tedd a `.env`-be **és a jelszókezelődbe is**. Ezután a mentés `backup-….tar.gz.enc` (XChaCha20-Poly1305, libsodium), titkosítatlan példány nem marad. Visszaállítás: `php artisan portfolio:backup-decrypt <fájl>.tar.gz.enc` (más gépen: `--key="base64:..."`), majd `tar -xzf`.
+  - **Külső másolat:** S3-kompatibilis tárhelyre (Backblaze B2 – 10 GB ingyenes, Cloudflare R2). Egyszer helyben: `composer require league/flysystem-aws-s3-v3 "^3.0"`, majd deploy; a `.env`-ben `PORTFOLIO_BACKUP_DISK=backup_offsite` és `BACKUP_S3_*`. Csak titkosított mentés kerül fel; a külső példányokból `PORTFOLIO_BACKUP_DISK_KEEP` marad meg. A Rendszerállapot panel mutatja, sikerült-e.
 - `model:prune` – GDPR: a `PORTFOLIO_RETENTION_MONTHS` (alapból 24) hónapja inaktív megkeresések, a hozzájuk tartozó fájlok és jegyzetek, valamint a régi konzultációs időpontok törlése. Elfogadott projektet és élő (aktív/szüneteltetett) karbantartási szerződést nem töröl.
 - a 13 hónapnál régebbi anonim statisztikai események törlése.
 
-**Online fizetés (Stripe).** Hivatalos SDK nélkül, közvetlen REST-hívásokkal (`App\Support\Stripe`). Előleg: az ajánlatban megadott % az elfogadás után kártyával (Checkout) vagy átutalással fizethető; a munka a befizetés után indul. Karbantartás: ha a megállapodásnál engedélyezed, az ügyfél a projektoldalán havi előfizetést indíthat, és a Stripe ügyfélportálján kezelheti (kártyacsere, lemondás). A fizetési állapot **csak** az aláírt webhookból frissül (`/api/stripe/webhook`; események: `checkout.session.completed`, `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted`); minden befizetés automatikusan bevételként kerül a Pénzügyekbe. **A Stripe-nyugta nem számla** – a számlát a számlázóprogramodban állítsd ki.
+**Online fizetés (Stripe).** Hivatalos SDK nélkül, közvetlen REST-hívásokkal (`App\Support\Stripe`). Előleg: az ajánlatban megadott % az elfogadás után kártyával (Checkout) vagy átutalással fizethető; a munka a befizetés után indul. **Dupla fizetés ellen:** a nyitott fizetési oldal újrahasznosul (több fül / újratöltés ugyanazt adja), a létrehozás Idempotency-Key-jel és zárral fut, átutalásos jóváíráskor a nyitott kártyás oldal lezárul. Ha mégis érkezik egy második befizetés, a Pénzügyekbe „visszatérítendő” tételként kerül, és e-mailt kapsz a visszatérítésről. Karbantartás: ha a megállapodásnál engedélyezed, az ügyfél a projektoldalán havi előfizetést indíthat, és a Stripe ügyfélportálján kezelheti (kártyacsere, lemondás). A fizetési állapot **csak** az aláírt webhookból frissül (`/api/stripe/webhook`; események: `checkout.session.completed`, `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted`); minden befizetés automatikusan bevételként kerül a Pénzügyekbe. **A Stripe-nyugta nem számla** – a számlát a számlázóprogramodban állítsd ki.
 
 **Szerződéskötés.** Az ajánlat elfogadása az ÁSZF-fel együtt elektronikus szerződéskötés: rögzül az ajánlat ujjlenyomata, az ÁSZF-verzió, az időpont, az IP és a böngésző, az ügyfél pedig azonnal visszaigazoló e-mailt kap (Ekertv. 6. §).
 

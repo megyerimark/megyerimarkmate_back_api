@@ -60,10 +60,35 @@ class StripeWebhookController extends Controller
     {
         $meta = $session['metadata'] ?? [];
         if (($meta['type'] ?? null) === 'deposit' && ($session['payment_status'] ?? null) === 'paid') {
-            $quote = QuoteRequest::find($meta['quote_request_id'] ?? 0);
-            if (! $quote || $quote->deposit_paid_at) return;
             $amount = intdiv((int) ($session['amount_total'] ?? 0), 100);
-            $quote->forceFill(['deposit_paid_at' => now(), 'deposit_paid_via' => 'stripe'])->save();
+            // Sorzárolás: két, egyszerre érkező webhook (két kifizetett munkamenet) közül csak az egyik lehet az „első”.
+            [$quote, $duplicate] = DB::transaction(function () use ($meta) {
+                $quote = QuoteRequest::whereKey($meta['quote_request_id'] ?? 0)->lockForUpdate()->first();
+                if (! $quote) return [null, false];
+                if ($quote->deposit_paid_at) return [$quote, true];
+                $quote->forceFill([
+                    'deposit_paid_at' => now(), 'deposit_paid_via' => 'stripe',
+                    'deposit_checkout_session_id' => null, 'deposit_checkout_url' => null, 'deposit_checkout_expires_at' => null,
+                ])->save();
+                return [$quote, false];
+            });
+            if (! $quote) return;
+            if ($duplicate && FinanceEntry::where('external_ref', 'stripe:'.$session['id'])->exists()) {
+                return; // ugyanaz a munkamenet, csak más eseményazonosítóval érkezett újra
+            }
+            if ($duplicate) {
+                // Az előleg már rendezve volt (másik fülön / átutalással), mégis befizettek egy újabbat.
+                // A pénz beérkezett, ezért rögzítjük, és szólunk, hogy vissza kell téríteni.
+                Log::warning('Duplicate deposit payment', ['quote_id' => $quote->id, 'session' => $session['id'] ?? null]);
+                FinanceEntry::recordIncome('stripe:'.$session['id'], $amount, 'Előleg – dupla, visszatérítendő',
+                    'DUPLA előleg – #'.$quote->id.' '.$quote->customer_name.' (visszatérítés után töröld)', $quote->id);
+                $this->notify('FIGYELEM: dupla előlegfizetés – '.$quote->customer_name, [
+                    'Projekt: #'.$quote->id, 'Összeg: '.number_format($amount, 0, ',', ' ').' Ft',
+                    'Az előleg már korábban rendezve volt ('.($quote->deposit_paid_via === 'transfer' ? 'átutalással' : 'kártyával').').',
+                    'Térítsd vissza a Stripe Dashboardon (Payments → a fizetés → Refund), majd töröld a tételt a Pénzügyekből.',
+                ]);
+                return;
+            }
             FinanceEntry::recordIncome('stripe:'.$session['id'], $amount, 'Előleg', 'Előleg – #'.$quote->id.' '.$quote->customer_name, $quote->id);
             $this->notify('Előleg beérkezett: '.$quote->customer_name, [
                 'Projekt: #'.$quote->id, 'Összeg: '.number_format($amount, 0, ',', ' ').' Ft', 'A munka megkezdhető.',
@@ -136,7 +161,7 @@ class StripeWebhookController extends Controller
     private function notify(string $headline, array $lines): void
     {
         $owner = config('portfolio.admin_email');
-        if (! $owner || ! config('portfolio.mail_enabled') || in_array(config('mail.default'), ['log', 'array', 'null'], true)) return;
+        if (! $owner || ! \App\Support\Mailer::canSend()) return;
         \Illuminate\Support\defer(function () use ($owner, $headline, $lines) {
             try {
                 Mail::to($owner)->send(new AdminPaymentNotice($headline, $lines));

@@ -20,9 +20,7 @@ class ProjectCollaborationController extends Controller
     private function clientQuote(Request $request): QuoteRequest
     {
         $data = $request->validate(['token' => ['required', 'string', 'regex:/\A[a-f0-9]{64}\z/D']]);
-        return QuoteRequest::where('portal_token_hash', hash('sha256', $data['token']))
-            ->where('portal_token_expires_at', '>', now())
-            ->firstOrFail();
+        return \App\Support\ClientAccess::quote($data['token']);
     }
 
     private function records(QuoteRequest $quote): array
@@ -55,7 +53,7 @@ class ProjectCollaborationController extends Controller
     private function notifyAdmin(QuoteRequest $quote, \App\Models\ProjectMessage $message): void
     {
         $owner = config('portfolio.admin_email');
-        if (! $owner || ! config('portfolio.mail_enabled') || in_array(config('mail.default'), ['log', 'array', 'null'], true)) {
+        if (! $owner || ! \App\Support\Mailer::canSend()) {
             return;
         }
         if (! Cache::add('client-message-mail:'.$quote->id, true, now()->addMinutes(10))) {

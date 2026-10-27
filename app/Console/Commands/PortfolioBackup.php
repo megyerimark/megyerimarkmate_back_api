@@ -2,7 +2,10 @@
 
 namespace App\Console\Commands;
 
+use App\Support\BackupCrypto;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use PharData;
@@ -17,8 +20,11 @@ use Throwable;
  * - SQLite esetén az adatbázisfájlt másolja.
  * - Csak a legutóbbi `portfolio.backup_keep` mentést tartja meg.
  *
- * A mentés személyes adatokat tartalmaz: a mappa ne legyen webről elérhető,
- * és rendszeresen töltsd le egy másik helyre is (a szerverrel együtt elveszhet).
+ * A mentés személyes adatokat tartalmaz: a mappa ne legyen webről elérhető.
+ *
+ * - PORTFOLIO_BACKUP_KEY esetén a mentés titkosítva (.tar.gz.enc) készül, titkosítatlan példány nem marad.
+ * - PORTFOLIO_BACKUP_DISK esetén a titkosított mentés egy külső tárhelyre is felkerül
+ *   (a szerverrel együtt nem vész el). Titkosítás nélkül külső feltöltés nincs.
  */
 class PortfolioBackup extends Command
 {
@@ -31,6 +37,7 @@ class PortfolioBackup extends Command
         File::ensureDirectoryExists($target, 0700);
         $stamp = now()->format('Y-m-d_His');
         $work = $target.'/.tmp-'.$stamp;
+        $file = '';
         File::ensureDirectoryExists($work, 0700);
 
         try {
@@ -48,8 +55,15 @@ class PortfolioBackup extends Command
             $archive->compress(\Phar::GZ);
             unset($archive);
             @unlink($tar);
-            @chmod($tar.'.gz', 0600);
-            $this->info('Mentés kész: '.$tar.'.gz');
+            $file = $tar.'.gz';
+            $key = BackupCrypto::parseKey(config('portfolio.backup_key'));
+            if ($key !== null) {
+                BackupCrypto::encryptFile($file, $file.'.enc', $key);
+                @unlink($file);
+                $file .= '.enc';
+            }
+            @chmod($file, 0600);
+            $this->info('Mentés kész: '.$file.($key ? ' (titkosítva)' : ' (TITKOSÍTATLAN – állítsd be a PORTFOLIO_BACKUP_KEY-t)'));
         } catch (Throwable $e) {
             $this->error('A mentés sikertelen: '.$e->getMessage());
             report($e);
@@ -59,7 +73,40 @@ class PortfolioBackup extends Command
         }
 
         $this->rotate($target);
-        return self::SUCCESS;
+        return $this->uploadOffsite($file) ? self::SUCCESS : self::FAILURE;
+    }
+
+    /** Külső másolat (pl. Backblaze B2 / Cloudflare R2). Hiba esetén a helyi mentés megmarad. */
+    private function uploadOffsite(string $file): bool
+    {
+        $diskName = config('portfolio.backup_disk');
+        if (! $diskName) {
+            return true;
+        }
+        if (! str_ends_with($file, '.enc')) {
+            $this->error('Külső mentés kihagyva: csak titkosított mentés tölthető fel (PORTFOLIO_BACKUP_KEY hiányzik).');
+            Cache::put('portfolio:offsite-backup', ['ok' => false, 'at' => now()->toDateTimeString(), 'error' => 'missing_key'], now()->addDays(30));
+            return false;
+        }
+        try {
+            $disk = Storage::disk($diskName);
+            $stream = fopen($file, 'rb');
+            $disk->writeStream(basename($file), $stream);
+            if (is_resource($stream)) fclose($stream);
+            $remote = collect($disk->files())->filter(fn ($f) => str_starts_with(basename($f), 'backup-'))->sort()->values();
+            foreach ($remote->slice(0, max(0, $remote->count() - (int) config('portfolio.backup_disk_keep'))) as $old) {
+                $disk->delete($old);
+            }
+            Cache::put('portfolio:offsite-backup', ['ok' => true, 'at' => now()->toDateTimeString(), 'file' => basename($file)], now()->addDays(30));
+            $this->info('Külső másolat feltöltve: '.$diskName.'/'.basename($file));
+            return true;
+        } catch (Throwable $e) {
+            $hint = str_contains($e->getMessage(), 'AwsS3V3Adapter') || str_contains($e->getMessage(), 'Class') ? ' (telepítsd: composer require league/flysystem-aws-s3-v3 "^3.0")' : '';
+            $this->error('A külső feltöltés sikertelen'.$hint.': '.$e->getMessage());
+            report($e);
+            Cache::put('portfolio:offsite-backup', ['ok' => false, 'at' => now()->toDateTimeString(), 'error' => class_basename($e)], now()->addDays(30));
+            return false;
+        }
     }
 
     private function dumpDatabase(string $file): void
@@ -126,7 +173,8 @@ class PortfolioBackup extends Command
 
     private function rotate(string $target): void
     {
-        $files = collect(File::glob($target.'/backup-*.tar.gz'))->sort()->values();
+        $files = collect(array_merge(File::glob($target.'/backup-*.tar.gz'), File::glob($target.'/backup-*.tar.gz.enc')))
+            ->sortBy(fn ($f) => basename($f))->values();
         $keep = (int) config('portfolio.backup_keep');
         foreach ($files->slice(0, max(0, $files->count() - $keep)) as $old) {
             File::delete($old);

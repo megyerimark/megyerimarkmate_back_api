@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
@@ -30,9 +31,13 @@ class Stripe
         return $forint * 100;
     }
 
-    public static function post(string $path, array $params = []): array
+    /**
+     * @param string|null $idempotencyKey Azonos kulccsal a Stripe 24 órán át ugyanazt a választ adja
+     *                                    (párhuzamos/dupla kérés nem hoz létre két objektumot).
+     */
+    public static function post(string $path, array $params = [], ?string $idempotencyKey = null): array
     {
-        return self::request('post', $path, $params);
+        return self::request('post', $path, $params, $idempotencyKey);
     }
 
     public static function get(string $path, array $params = []): array
@@ -45,7 +50,7 @@ class Stripe
         return self::request('delete', $path, $params);
     }
 
-    private static function request(string $method, string $path, array $params): array
+    private static function request(string $method, string $path, array $params, ?string $idempotencyKey = null): array
     {
         if (! self::enabled()) {
             throw new RuntimeException('Stripe is not configured.');
@@ -54,12 +59,22 @@ class Stripe
         if ($version = config('services.stripe.api_version')) {
             $client = $client->withHeaders(['Stripe-Version' => $version]);
         }
+        if ($idempotencyKey !== null && $method === 'post') {
+            $client = $client->withHeaders(['Idempotency-Key' => $idempotencyKey]);
+        }
         $response = $method === 'get'
             ? $client->get(self::base().$path, $params)
             : $client->{$method}(self::base().$path, $params);
         if ($response->failed()) {
             // A Stripe hibaüzenete nem tartalmaz kártyaadatot; a kulcsot sosem naplózzuk.
-            throw new RuntimeException('Stripe API error ('.$response->status().'): '.($response->json('error.message') ?? 'unknown'));
+            $message = 'Stripe API error ('.$response->status().'): '.($response->json('error.message') ?? 'unknown');
+            // A Rendszerállapot panel megmutatja, így nem kell a laravel.log-ban keresgélni.
+            Cache::put('portfolio:stripe-last-error', [
+                'at' => now()->toDateTimeString(), 'endpoint' => strtok($path, '/'), 'status' => $response->status(),
+                'message' => mb_substr((string) ($response->json('error.message') ?? 'unknown'), 0, 300),
+                'param' => $response->json('error.param'),
+            ], now()->addDays(14));
+            throw new RuntimeException($message);
         }
         return $response->json();
     }

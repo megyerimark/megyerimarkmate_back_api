@@ -17,7 +17,7 @@ use Throwable;
  */
 class AdminSystemStatusController extends Controller
 {
-    public const BACKEND_VERSION = 'v19';
+    public const BACKEND_VERSION = 'v20';
 
     /** Az új funkciók által igényelt táblák – ha valamelyik hiányzik, a migráció nem futott le. */
     private const REQUIRED_TABLES = [
@@ -41,7 +41,11 @@ class AdminSystemStatusController extends Controller
             if (! Schema::hasTable($table)) $missing[] = ['table' => $table, 'feature' => $feature];
         }
         $schedulerLast = Cache::get('portfolio:scheduler-heartbeat');
-        $backups = collect(File::glob(rtrim((string) config('portfolio.backup_path'), '/').'/backup-*.tar.gz'))->sort()->values();
+        $backupDir = rtrim((string) config('portfolio.backup_path'), '/');
+        $backups = collect(array_merge(File::glob($backupDir.'/backup-*.tar.gz'), File::glob($backupDir.'/backup-*.tar.gz.enc')))
+            ->sortBy(fn ($f) => basename($f))->values();
+        $offsite = Cache::get('portfolio:offsite-backup');
+        $stripeError = Cache::get('portfolio:stripe-last-error');
 
         $checks = [
             $this->check('migrations', 'Adatbázis-migrációk', $pending === [] && $missing === [],
@@ -51,16 +55,23 @@ class AdminSystemStatusController extends Controller
                 config('app.debug') ? 'APP_DEBUG=true – élesben a hibák belső részleteket mutatnak! Állítsd false-ra.' : 'Rendben.'),
             $this->check('https', 'HTTPS és biztonságos süti', str_starts_with((string) config('app.url'), 'https://') && (bool) config('session.secure'),
                 'APP_URL https:// legyen, és SESSION_SECURE_COOKIE=true.'),
-            $this->check('mail', 'E-mail-küldés', config('portfolio.mail_enabled') && ! in_array(config('mail.default'), ['log', 'array', 'null'], true) && config('portfolio.admin_email'),
+            $this->check('mail', 'E-mail-küldés', \App\Support\Mailer::canSend() && config('portfolio.admin_email'),
                 'PORTFOLIO_MAIL_ENABLED=true, valós MAIL_MAILER és PORTFOLIO_ADMIN_EMAIL szükséges (értesítők, 2FA, ajánlatküldés).'),
             $this->check('two_factor', 'Kötelező kétlépcsős belépés', (bool) config('portfolio.require_admin_2fa'), 'PORTFOLIO_REQUIRE_ADMIN_2FA=true ajánlott élesben.'),
-            $this->check('stripe', 'Stripe online fizetés', Stripe::enabled() && (bool) config('services.stripe.webhook_secret'),
-                Stripe::enabled() ? (config('services.stripe.webhook_secret') ? 'Beállítva ('.(str_starts_with((string) config('services.stripe.secret'), 'sk_live_') ? 'éles' : 'teszt').' kulcs).' : 'STRIPE_WEBHOOK_SECRET hiányzik – a befizetések nem könyvelődnek!')
-                    : 'Nincs beállítva: az előleg csak átutalással fizethető.'),
-            $this->check('scheduler', 'Ütemezett feladatok (cron)', $schedulerLast && now()->diffInMinutes($schedulerLast) < 10,
+            $this->check('stripe', 'Stripe online fizetés', Stripe::enabled() && (bool) config('services.stripe.webhook_secret') && ! $stripeError,
+                (Stripe::enabled() ? (config('services.stripe.webhook_secret') ? 'Beállítva ('.(str_starts_with((string) config('services.stripe.secret'), 'sk_live_') ? 'éles' : 'teszt').' kulcs).' : 'STRIPE_WEBHOOK_SECRET hiányzik – a befizetések nem könyvelődnek!')
+                    : 'Nincs beállítva (STRIPE_SECRET üres): az előleg csak átutalással fizethető, elfogadás után nincs átirányítás.')
+                .($stripeError ? ' Utolsó Stripe-hiba ('.$stripeError['at'].', '.$stripeError['endpoint'].', HTTP '.$stripeError['status'].'): '.$stripeError['message'].($stripeError['param'] ? ' [mező: '.$stripeError['param'].']' : '') : ''),
+                $stripeError ? ['last_error' => $stripeError] : []),
+            $this->check('scheduler', 'Ütemezett feladatok (cron)', $schedulerLast && abs(now()->diffInMinutes($schedulerLast)) < 10,
                 $schedulerLast ? 'Utolsó futás: '.$schedulerLast : 'A cron-sor nincs beállítva – nincs automatikus mentés, adattörlés és lejárati emlékeztető.'),
             $this->check('backup', 'Napi mentés', $backups->isNotEmpty() && now()->timestamp - filemtime($backups->last()) < 2 * 86400,
                 $backups->isNotEmpty() ? 'Legutóbbi: '.basename($backups->last()) : 'Még nincs mentés (portfolio:backup).'),
+            $this->check('backup_encrypted', 'Titkosított mentés', (bool) config('portfolio.backup_key'),
+                config('portfolio.backup_key') ? 'Rendben. A kulcsot a szerveren kívül is őrizd (jelszókezelő)!' : 'PORTFOLIO_BACKUP_KEY hiányzik – a mentések személyes adatot tartalmaznak titkosítatlanul. Kulcs: php artisan portfolio:backup-key'),
+            $this->check('backup_offsite', 'Külső mentés (szerveren kívül)', is_array($offsite) && ($offsite['ok'] ?? false) && abs(now()->diffInHours($offsite['at'])) < 48,
+                ! config('portfolio.backup_disk') ? 'Nincs beállítva (PORTFOLIO_BACKUP_DISK): ha a tárhely elvész, a mentés is vele vész.'
+                    : (is_array($offsite) ? (($offsite['ok'] ?? false) ? 'Legutóbbi: '.($offsite['file'] ?? '').' ('.$offsite['at'].')' : 'Sikertelen ('.($offsite['error'] ?? 'hiba').', '.$offsite['at'].') – lásd a naplót.') : 'Még nem futott.')),
             $this->check('cache', 'Gyors gyorsítótár', config('cache.default') !== 'database',
                 config('cache.default') === 'database' ? 'CACHE_STORE=database: minden kéréskorlát és gyorsítótár a (távoli) MySQL-t terheli. Állítsd CACHE_STORE=file-ra – gyorsabb lesz az oldal.' : 'Rendben ('.config('cache.default').').'),
             $this->check('storage_link', 'Képtárhely-link', is_link(public_path('storage')) || is_dir(public_path('storage')), 'Futtasd: php artisan storage:link'),
@@ -75,7 +86,7 @@ class AdminSystemStatusController extends Controller
             'config_cached' => app()->configurationIsCached(),
             'database' => $this->databaseOk(),
             'checks' => $checks,
-            'ok' => collect($checks)->every(fn ($c) => $c['ok'] || in_array($c['key'], ['stripe', 'backup', 'cache'], true)),
+            'ok' => collect($checks)->every(fn ($c) => $c['ok'] || in_array($c['key'], ['stripe', 'backup', 'backup_encrypted', 'backup_offsite', 'cache'], true)),
         ]])->header('Cache-Control', 'no-store');
     }
 
