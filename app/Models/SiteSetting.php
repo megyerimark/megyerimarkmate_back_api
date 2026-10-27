@@ -28,6 +28,14 @@ class SiteSetting extends Model
         'reviews_widget_id' => '',
         // A Google Cégprofil véleményírási linkje (pl. https://g.page/r/.../review).
         'google_review_url' => '',
+        // Akció (admin → Oldalbeállítások → Akció). A főoldalon és az árkalkulátorban jelenik meg.
+        'promo_enabled' => '0',
+        'promo_percent' => '0',
+        'promo_title' => '',
+        'promo_title_en' => '',
+        'promo_text' => '',
+        'promo_text_en' => '',
+        'promo_ends_at' => '',
     ];
 
     public static function allPublic(): array

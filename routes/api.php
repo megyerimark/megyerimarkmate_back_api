@@ -43,6 +43,10 @@ Route::withoutMiddleware([EnsureFrontendRequestsAreStateful::class])->group(func
 
 // Public enquiry submission: no personal information in the response besides the reference ID.
 Route::post('/quote-requests', [QuoteRequestController::class, 'store'])->middleware('throttle:5,1,post--quote-requests');
+// Hírlevél: kettős megerősítés; a kulcsok a kérés törzsében utaznak.
+Route::post('/newsletter/subscribe', [\App\Http\Controllers\NewsletterController::class, 'subscribe'])->middleware('throttle:5,1,post--newsletter-subscribe');
+Route::post('/newsletter/confirm', [\App\Http\Controllers\NewsletterController::class, 'confirm'])->middleware('throttle:20,1,post--newsletter-confirm');
+Route::post('/newsletter/unsubscribe', [\App\Http\Controllers\NewsletterController::class, 'unsubscribe'])->middleware('throttle:20,1,post--newsletter-unsubscribe');
 // Private capability token lives in the request body (never in a server-logged URL).
 Route::post('/client/project', [ClientProjectController::class, 'show'])->middleware('throttle:20,1,post--client-project');
 Route::post('/client/project/accept', [ClientProjectController::class, 'accept'])->middleware('throttle:5,1,post--client-project-accept');
@@ -104,6 +108,9 @@ Route::middleware(['auth:sanctum', 'can:access-admin', 'admin.2fa'])->prefix('ad
     Route::put('/finance/settings', [AdminFinanceController::class, 'updateSettings'])->middleware('throttle:20,1,put--finance-settings');
     Route::put('/vault', [AdminClientSiteController::class, 'saveVault'])->middleware('throttle:5,1,put--vault');
     Route::get('/exports/quote-requests', [AdminQuoteRequestController::class, 'export'])->middleware('throttle:10,1,get--exports-quote-requests');
+    Route::get('/newsletter', [\App\Http\Controllers\AdminNewsletterController::class, 'index']);
+    Route::delete('/newsletter/{subscriber}', [\App\Http\Controllers\AdminNewsletterController::class, 'destroy']);
+    Route::get('/exports/newsletter', [\App\Http\Controllers\AdminNewsletterController::class, 'export'])->middleware('throttle:10,1,get--exports-newsletter');
     Route::post('/quote-requests/{quoteRequest}/contacted', [AdminQuoteRequestController::class, 'markContacted']);
     Route::post('/quote-requests/{quoteRequest}/deposit-paid', [AdminQuoteRequestController::class, 'markDepositPaid'])->middleware('throttle:10,1,post--quote-requests-quoteRequest-deposit-paid');
     Route::apiResource('testimonials', AdminTestimonialController::class)->except('show');

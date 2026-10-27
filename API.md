@@ -4,6 +4,8 @@ Minden válasz JSON (kivéve a letöltéseket, a CSV-exportot és a `sitemap.xml
 
 **Hitelesítés:** az admin a Sanctum SPA-módját használja (munkamenet-süti + `XSRF-TOKEN`). Írási kérés előtt egyszer le kell kérni a `GET /sanctum/csrf-cookie` címet, és a kéréseket `withCredentials`-szel, `X-XSRF-TOKEN` fejléccel kell küldeni. Az Angular `HttpClient` ezt automatikusan intézi.
 
+**Gyorsítótár:** a nyilvános tartalom (szolgáltatások, referenciák, beállítások, vélemények) 10 percig szerveroldali gyorsítótárból jön, és bármely admin-módosítás azonnal érvényteleníti; a válasz `Cache-Control: private, max-age=120` (beállításoknál 60).
+
 **Kéréskorlátozás:** minden `/api/*` útvonalra globálisan 300 kérés/perc/IP (`PORTFOLIO_API_RATE_PER_MINUTE`), a végpontokon ennél szigorúbb egyedi korlát; a túllépés `429`-es választ ad.
 
 ## Nyilvános végpontok
@@ -13,12 +15,15 @@ Minden válasz JSON (kivéve a letöltéseket, a CSV-exportot és a `sitemap.xml
 | GET | `/api/services` | Aktív szolgáltatások | 120/perc |
 | GET | `/api/projects` | Publikált, nem demó referenciák | 120/perc |
 | GET | `/api/projects/{slug}` | Egy publikált referencia | 120/perc |
-| GET | `/api/site-settings` | Nyilvános oldalbeállítások | 120/perc |
+| GET | `/api/site-settings` | Nyilvános oldalbeállítások + `promo` (`active`, `percent`, `title`, `ends_at` – a szerver számolja) | 120/perc |
 | GET | `/api/testimonials` | Publikált ügyfélvélemények (max. 12) | 120/perc |
 | POST | `/api/stripe/webhook` | Stripe → szerver (aláírt események; csak a Stripe hívja) | 300/perc |
 | GET | `/api/sitemap.xml` | Dinamikus oldaltérkép (statikus oldalak + referenciák) | 60/perc |
 | POST | `/api/events` | Anonim eseményszámlálás (`page_view`, `cta_click`, …); süti és IP nélkül | 120/perc |
 | POST | `/api/quote-requests` | Ajánlatkérés beküldése → `201 { reference }` | 5/perc |
+| POST | `/api/newsletter/subscribe` | Hírlevél-feliratkozás (`email`, `consent: true`, `lang`, `source`; `website` = honeypot). Megerősítő e-mailt küld (double opt-in); a válasz nem árulja el, ha a cím már fel van iratkozva | 5/perc |
+| POST | `/api/newsletter/confirm` | Megerősítés a levélben kapott kulccsal (`token`, 64 hex, 7 napig érvényes) → `unsubscribe_token` | 20/perc |
+| POST | `/api/newsletter/unsubscribe` | Leiratkozás (`token`) | 20/perc |
 | GET | `/api/consultations/available` | Szabad konzultációs időpontok (2 óra – 60 nap) | 40/perc |
 | POST | `/api/consultations/book` | Időpontfoglalás | 5/perc |
 
@@ -72,7 +77,8 @@ Mindegyikhez szükséges: bejelentkezett admin (`auth:sanctum`, `can:access-admi
 | Előleg | `PATCH quote-requests/{id}` (`deposit_percent`, elküldés után zárolt; a `send-proposal` 422-t ad, ha kisebb, mint `PORTFOLIO_MIN_DEPOSIT_PERCENT`) · `POST quote-requests/{id}/deposit-paid` (átutalás jóváírása) |
 | Kész projektek + széf | `GET/POST sites` · `PATCH/DELETE sites/{id}` · `GET/PUT vault` – a `vault_blob` csak böngészőben titkosított `{"v":1,"iv":…,"ct":…}` lehet |
 | Pénzügyek | `GET finance/summary?year=` · `GET finance/entries?year=&month=` · `POST/PATCH/DELETE finance/entries/{id}` · `PUT finance/settings` |
-| Tartalom | `services`, `projects`, `testimonials` (REST erőforrások) · `GET/PATCH site-settings` |
+| Tartalom | `services`, `projects`, `testimonials` (REST erőforrások) · `GET/PATCH site-settings` (akció: `promo_enabled`, `promo_percent` 0–90, `promo_title(_en)`, `promo_text(_en)`, `promo_ends_at` Y-m-d) |
+| Hírlevél | `GET newsletter` (`q`, `status`) → lista + `counts` · `DELETE newsletter/{id}` (GDPR-törlés) · `GET exports/newsletter` (CSV, csak megerősítettek) |
 
 **Ajánlatkérés állapotai:** `new → reviewing → quoted → accepted → completed`, illetve `rejected`. A `quoted` állapotot csak a `send-proposal` állíthatja be (sikeres e-mail után), az `accepted` állapotot csak az ügyfél. Elküldött ajánlat tartalma nem módosítható csendben.
 

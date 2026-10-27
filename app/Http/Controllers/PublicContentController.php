@@ -6,6 +6,8 @@ use App\Models\PortfolioProject;
 use App\Models\Service;
 use App\Models\SiteSetting;
 use App\Models\Testimonial;
+use App\Support\PublicCache;
+use App\Support\Promotion;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 
@@ -13,14 +15,14 @@ class PublicContentController extends Controller
 {
     public function services(): JsonResponse
     {
-        return response()->json(['data' => Service::where('is_active', true)
-            ->orderBy('sort_order')->orderBy('id')->get()]);
+        return $this->cached(['data' => PublicCache::remember('services', fn () => Service::where('is_active', true)
+            ->orderBy('sort_order')->orderBy('id')->get()->toArray())]);
     }
 
     public function projects(): JsonResponse
     {
-        return response()->json(['data' => PortfolioProject::where('is_published', true)->where('is_demo', false)
-            ->orderByDesc('is_featured')->orderBy('sort_order')->orderByDesc('id')->get()]);
+        return $this->cached(['data' => PublicCache::remember('projects', fn () => PortfolioProject::where('is_published', true)->where('is_demo', false)
+            ->orderByDesc('is_featured')->orderBy('sort_order')->orderByDesc('id')->get()->toArray())]);
     }
 
     public function project(string $slug): JsonResponse
@@ -31,13 +33,15 @@ class PublicContentController extends Controller
 
     public function settings(): JsonResponse
     {
-        return response()->json(['data' => SiteSetting::allPublic()]);
+        $settings = PublicCache::remember('settings', fn () => SiteSetting::allPublic());
+        // Az akció állapota (lejárat!) mindig frissen számolódik, a gyorsítótárazott beállításokból.
+        return $this->cached(['data' => $settings + ['promo' => Promotion::current($settings)]], 60);
     }
 
     /** Csak az admin által publikált vélemények; a projekthivatkozás csak valódi, publikus referenciára mutat. */
     public function testimonials(): JsonResponse
     {
-        $items = Testimonial::with('project:id,slug,title,is_published,is_demo')
+        $items = PublicCache::remember('testimonials', fn () => Testimonial::with('project:id,slug,title,is_published,is_demo')
             ->where('is_published', true)
             ->orderBy('sort_order')->orderByDesc('id')->limit(12)->get()
             ->map(fn (Testimonial $item) => [
@@ -49,8 +53,14 @@ class PublicContentController extends Controller
                 'rating' => $item->rating,
                 'project' => $item->project && $item->project->is_published && ! $item->project->is_demo
                     ? ['slug' => $item->project->slug, 'title' => $item->project->title] : null,
-            ])->values();
-        return response()->json(['data' => $items]);
+            ])->values()->all());
+        return $this->cached(['data' => $items]);
+    }
+
+    /** Rövid böngésző-/proxy-gyorsítótár a nyilvános JSON-ra; utána háttérben frissít. */
+    private function cached(array $payload, int $maxAge = 120): JsonResponse
+    {
+        return response()->json($payload)->header('Cache-Control', "private, max-age={$maxAge}, stale-while-revalidate=600");
     }
 
     /**

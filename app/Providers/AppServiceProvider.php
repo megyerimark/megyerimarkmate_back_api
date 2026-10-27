@@ -18,6 +18,12 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // A nyilvános tartalom gyorsítótárát minden admin-módosítás érvényteleníti.
+        foreach ([\App\Models\Service::class, \App\Models\PortfolioProject::class, \App\Models\Testimonial::class, \App\Models\SiteSetting::class] as $model) {
+            $model::saved(fn () => \App\Support\PublicCache::flush());
+            $model::deleted(fn () => \App\Support\PublicCache::flush());
+        }
+
         Gate::define('access-admin', fn (User $user): bool => (bool) $user->is_admin);
 
         // Belépés: IP-címenként és e-mail-címenként is korlátozunk, így sok IP-ről

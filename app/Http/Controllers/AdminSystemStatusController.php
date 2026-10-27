@@ -17,12 +17,12 @@ use Throwable;
  */
 class AdminSystemStatusController extends Controller
 {
-    public const BACKEND_VERSION = 'v18';
+    public const BACKEND_VERSION = 'v19';
 
     /** Az új funkciók által igényelt táblák – ha valamelyik hiányzik, a migráció nem futott le. */
     private const REQUIRED_TABLES = [
         'finance_entries' => 'Pénzügyek', 'client_sites' => 'Kész projektek', 'admin_settings' => 'Pénzügyi beállítások / széf',
-        'stripe_events' => 'Stripe-fizetés', 'maintenance_agreements' => 'Karbantartás', 'project_messages' => 'Ügyfélüzenetek',
+        'stripe_events' => 'Stripe-fizetés', 'maintenance_agreements' => 'Karbantartás', 'project_messages' => 'Ügyfélüzenetek', 'newsletter_subscribers' => 'Hírlevél',
     ];
 
     public function index(): JsonResponse
@@ -61,6 +61,8 @@ class AdminSystemStatusController extends Controller
                 $schedulerLast ? 'Utolsó futás: '.$schedulerLast : 'A cron-sor nincs beállítva – nincs automatikus mentés, adattörlés és lejárati emlékeztető.'),
             $this->check('backup', 'Napi mentés', $backups->isNotEmpty() && now()->timestamp - filemtime($backups->last()) < 2 * 86400,
                 $backups->isNotEmpty() ? 'Legutóbbi: '.basename($backups->last()) : 'Még nincs mentés (portfolio:backup).'),
+            $this->check('cache', 'Gyors gyorsítótár', config('cache.default') !== 'database',
+                config('cache.default') === 'database' ? 'CACHE_STORE=database: minden kéréskorlát és gyorsítótár a (távoli) MySQL-t terheli. Állítsd CACHE_STORE=file-ra – gyorsabb lesz az oldal.' : 'Rendben ('.config('cache.default').').'),
             $this->check('storage_link', 'Képtárhely-link', is_link(public_path('storage')) || is_dir(public_path('storage')), 'Futtasd: php artisan storage:link'),
         ];
 
@@ -73,7 +75,7 @@ class AdminSystemStatusController extends Controller
             'config_cached' => app()->configurationIsCached(),
             'database' => $this->databaseOk(),
             'checks' => $checks,
-            'ok' => collect($checks)->every(fn ($c) => $c['ok'] || in_array($c['key'], ['stripe', 'backup'], true)),
+            'ok' => collect($checks)->every(fn ($c) => $c['ok'] || in_array($c['key'], ['stripe', 'backup', 'cache'], true)),
         ]])->header('Cache-Control', 'no-store');
     }
 

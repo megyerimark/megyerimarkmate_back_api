@@ -26,6 +26,10 @@ A szkript karbantartási módba teszi az oldalt, telepíti a függőségeket, me
 
 Ellenőrzés: Admin → Fiók és biztonság → **Rendszerállapot** (`GET /api/admin/system-status`). Itt látszik a backend verziója, a hiányzó migrációk/táblák, a debug mód, HTTPS, e-mail, 2FA, Stripe, cron és mentés állapota.
 
+### Gyorsaság élesben (fontos!)
+
+A `.env`-ben legyen **`CACHE_STORE=file`**. `database` esetén minden kérés kéréskorlátja és a gyorsítótár is a (Rackhoston távoli) MySQL-t terheli – ez lassítja az oldalt. A Rendszerállapot panel figyelmeztet, ha még `database`. Megosztott tárhelyen (Rackhost) **ne** futtass `php artisan optimize` / `config:cache` parancsot: az SSH más útvonalon látja a projektet, mint a webszerver (a `deploy.sh` ezért csak az útvonalakat gyorsítótárazza).
+
 ## 1. Telepítés meglévő projektbe
 
 1. **Először készíts biztonsági mentést** a teljes korábbi projektmappáról és a MySQL adatbázisról.

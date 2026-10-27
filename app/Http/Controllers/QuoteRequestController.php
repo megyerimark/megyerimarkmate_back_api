@@ -18,6 +18,12 @@ class QuoteRequestController extends Controller
         $data = $request->safe()->except(['website', 'privacy_notice_acknowledged']);
         $quote = new QuoteRequest($data);
         $quote->privacy_notice_acknowledged_at = now();
+        // Az ajánlatkérés pillanatában érvényes akció rögzítése (a látogató nem küldheti, a szerver dönti el).
+        $promo = \App\Support\Promotion::current();
+        if ($promo['active']) {
+            $quote->promo_percent = $promo['percent'];
+            $quote->promo_title = \Illuminate\Support\Str::limit($promo['title'] ?: 'Akció', 80, '');
+        }
         // The public receipt exposes only a numeric reference; the access secret travels by email.
         $portalToken = bin2hex(random_bytes(32));
         $quote->portal_token_hash = hash('sha256', $portalToken);
