@@ -29,7 +29,7 @@ A privát kulcs (64 hex karakter) **mindig a kérés törzsében** (`token`) uta
 | Metódus | Útvonal | Leírás | Korlát |
 |---|---|---|---|
 | POST | `/api/client/project` | Projekt / ajánlat adatai | 20/perc |
-| POST | `/api/client/project/accept` | Ajánlat elfogadása (`accept_terms: true`), egyszeri | 5/perc |
+| POST | `/api/client/project/accept` | Ajánlat elfogadása (`accept_terms: true`), egyszeri; a válaszban `payment_url` = Stripe-előlegfizetés (ha elérhető), a felület oda irányít | 5/perc |
 | POST | `/api/client/project/collaboration` | Üzenetek és dokumentumlista | 20/perc |
 | POST | `/api/client/project/messages` | Üzenet küldése (`body`, 2–3000 karakter) | 5/perc |
 | POST | `/api/client/project/documents/{id}/download` | Dokumentum letöltése | 30/perc |
@@ -59,6 +59,7 @@ Mindegyikhez szükséges: bejelentkezett admin (`auth:sanctum`, `can:access-admi
 | Terület | Végpontok |
 |---|---|
 | Értesítések | `GET dashboard` → `messages_unread`, `unread_threads`, `sites_expiring`; a beszélgetés megnyitása olvasottá teszi az ügyfélüzeneteket |
+| Rendszerállapot | `GET system-status` → backend-verzió, függő migrációk, hiányzó táblák, debug/HTTPS/e-mail/2FA/Stripe/cron/mentés ellenőrzés (titkot nem ad vissza) |
 | Fiók és biztonság | `GET me` · `PUT password` · `GET security` (`two_factor_email_enabled`, `two_factor_required`) · `PUT security/two-factor` · `GET security/sessions` · `DELETE security/sessions/others` |
 | Áttekintés | `GET dashboard` · `GET growth` · `GET activities` · `GET quote-board` |
 | Ajánlatkérések | `GET quote-requests` (`q`, `status`, `per_page`) · `GET/PATCH/DELETE quote-requests/{id}` · `POST quote-requests/{id}/send-proposal` · `POST …/rotate-client-access` · `POST …/contacted` · `GET exports/quote-requests` (CSV) |
@@ -68,7 +69,7 @@ Mindegyikhez szükséges: bejelentkezett admin (`auth:sanctum`, `can:access-admi
 | Ügyfelek | `GET clients` · `GET clients/quotes?email=` |
 | Konzultáció | `GET/POST consultations` · `DELETE consultations/{slot}` |
 | Karbantartás | `GET/POST maintenance-agreements` · `PATCH maintenance-agreements/{id}` (`billing_enabled`) · `POST …/{id}/cancel-subscription` |
-| Előleg | `PATCH quote-requests/{id}` (`deposit_percent`, elküldés után zárolt) · `POST quote-requests/{id}/deposit-paid` (átutalás jóváírása) |
+| Előleg | `PATCH quote-requests/{id}` (`deposit_percent`, elküldés után zárolt; a `send-proposal` 422-t ad, ha kisebb, mint `PORTFOLIO_MIN_DEPOSIT_PERCENT`) · `POST quote-requests/{id}/deposit-paid` (átutalás jóváírása) |
 | Kész projektek + széf | `GET/POST sites` · `PATCH/DELETE sites/{id}` · `GET/PUT vault` – a `vault_blob` csak böngészőben titkosított `{"v":1,"iv":…,"ct":…}` lehet |
 | Pénzügyek | `GET finance/summary?year=` · `GET finance/entries?year=&month=` · `POST/PATCH/DELETE finance/entries/{id}` · `PUT finance/settings` |
 | Tartalom | `services`, `projects`, `testimonials` (REST erőforrások) · `GET/PATCH site-settings` |
@@ -78,3 +79,7 @@ Mindegyikhez szükséges: bejelentkezett admin (`auth:sanctum`, `can:access-admi
 ## Ütemezett feladatok
 
 Lásd a README „Biztonság és üzemeltetés” részét: `portfolio:backup`, `model:prune`, `portfolio:expiry-reminders`, eseménytörlés.
+
+## Hibaválaszok
+
+Ha egy admin-végpont mögött hiányzik az adatbázistábla (elmaradt migráció), a válasz `503 { error_code: "MIGRATION_REQUIRED" }`, és az admin felület magyarul kiírja a teendőt (`bash deploy.sh` / `php artisan migrate --force`). A validációs üzenetek magyarul érkeznek (`lang/hu`).

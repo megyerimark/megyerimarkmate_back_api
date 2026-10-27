@@ -46,27 +46,12 @@ class ClientPaymentController extends Controller
             throw ValidationException::withMessages(['payment' => 'Ehhez a projekthez jelenleg nincs fizetendő előleg.']);
         }
         try {
-            $session = Stripe::post('checkout/sessions', $this->urls() + [
-                'mode' => 'payment',
-                'customer_email' => $quote->email,
-                'client_reference_id' => 'quote-'.$quote->id,
-                'locale' => 'hu',
-                'line_items' => [[
-                    'quantity' => 1,
-                    'price_data' => [
-                        'currency' => config('services.stripe.currency'),
-                        'unit_amount' => Stripe::huf($amount),
-                        'product_data' => ['name' => 'Előleg – #'.$quote->id.' webfejlesztési projekt ('.$quote->deposit_percent.'%)'],
-                    ],
-                ]],
-                'metadata' => ['type' => 'deposit', 'quote_request_id' => $quote->id],
-                'payment_intent_data' => ['metadata' => ['type' => 'deposit', 'quote_request_id' => $quote->id]],
-            ]);
+            $url = \App\Support\DepositCheckout::create($quote);
         } catch (Throwable $e) {
             Log::error('Stripe deposit checkout failed', ['quote_id' => $quote->id, 'error' => $e->getMessage()]);
             throw ValidationException::withMessages(['payment' => 'A fizetési oldal most nem nyitható meg. Próbáld újra pár perc múlva.']);
         }
-        return response()->json(['url' => $session['url']])->header('Cache-Control', 'no-store');
+        return response()->json(['url' => $url])->header('Cache-Control', 'no-store');
     }
 
     /** Havi karbantartási előfizetés indítása (Checkout, subscription mód). */

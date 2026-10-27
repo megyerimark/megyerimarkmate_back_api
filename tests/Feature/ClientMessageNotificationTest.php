@@ -51,4 +51,15 @@ class ClientMessageNotificationTest extends TestCase
         $admin->forceFill(['is_admin' => true])->save();
         $this->actingAs($admin)->getJson('/api/admin/dashboard')->assertJsonPath('data.messages_unread', 0);
     }
+
+    public function test_reloading_the_portal_does_not_use_up_the_message_limit(): void
+    {
+        [, $token] = $this->quoteWithToken();
+        for ($i = 0; $i < 8; $i++) {
+            $this->postJson('/api/client/project', ['token' => $token])->assertOk();
+            $this->postJson('/api/client/project/collaboration', ['token' => $token])->assertOk();
+        }
+        // Korábban a végpontok közös számlálója miatt itt már 429 jött.
+        $this->postJson('/api/client/project/messages', ['token' => $token, 'body' => 'Frissítés után is elmegy?'])->assertCreated();
+    }
 }

@@ -146,4 +146,29 @@ class PaymentsTest extends TestCase
         $this->postJson('/api/client/project/deposit/checkout', ['token' => $this->token])->assertUnprocessable();
         $this->postJson('/api/client/project', ['token' => $this->token])->assertJsonPath('data.online_payment', false);
     }
+
+    public function test_accepting_returns_stripe_payment_url_for_mandatory_deposit(): void
+    {
+        Http::fake(['api.stripe.com/v1/checkout/sessions' => Http::response(['id' => 'cs_9', 'url' => 'https://checkout.stripe.com/c/cs_9'])]);
+        $this->quote();
+        $this->postJson('/api/client/project/accept', ['token' => $this->token, 'accept_terms' => true])
+            ->assertOk()->assertJsonPath('payment_url', 'https://checkout.stripe.com/c/cs_9');
+        Http::assertSent(fn ($r) => (int) $r['line_items'][0]['price_data']['unit_amount'] === 12000000);
+    }
+
+    public function test_acceptance_still_succeeds_when_stripe_is_down(): void
+    {
+        Http::fake(['api.stripe.com/*' => Http::response(['error' => ['message' => 'down']], 500)]);
+        $this->quote();
+        $this->postJson('/api/client/project/accept', ['token' => $this->token, 'accept_terms' => true])
+            ->assertOk()->assertJsonPath('data.status', 'accepted')->assertJsonPath('payment_url', null);
+    }
+
+    public function test_no_payment_url_without_stripe(): void
+    {
+        config()->set('services.stripe.secret', null);
+        $this->quote();
+        $this->postJson('/api/client/project/accept', ['token' => $this->token, 'accept_terms' => true])
+            ->assertOk()->assertJsonPath('payment_url', null)->assertJsonPath('data.deposit_amount_huf', 120000);
+    }
 }

@@ -26,4 +26,16 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+        // Elmaradt migráció (hiányzó tábla/oszlop) élesítés után: érthető üzenet a „Szerverhiba” helyett.
+        $exceptions->render(function (\Illuminate\Database\QueryException $e, Request $request) {
+            if (! $request->is('api/*')) return null;
+            if (preg_match('/no such table|no such column|Base table or view not found|Unknown column|doesn\'t exist/i', $e->getMessage())) {
+                report($e);
+                return response()->json([
+                    'message' => 'Az adatbázis nincs frissítve az új verzióhoz. A szerveren futtasd: php artisan migrate --force',
+                    'error_code' => 'MIGRATION_REQUIRED',
+                ], 503);
+            }
+            return null;
+        });
     })->create();

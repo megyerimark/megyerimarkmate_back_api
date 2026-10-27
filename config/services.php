@@ -42,6 +42,7 @@ return [
         // Üresen a Stripe-fiók alapértelmezett API-verziója érvényes.
         'api_version' => env('STRIPE_API_VERSION'),
         'currency' => 'huf',
+        'api_base' => env('STRIPE_API_BASE'), // csak helyi teszteléshez
     ],
 
 ];

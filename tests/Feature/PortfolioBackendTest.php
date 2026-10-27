@@ -158,11 +158,17 @@ class PortfolioBackendTest extends TestCase
             'proposal_summary' => 'Egyedi céges weboldal, öt aloldal, átadás és két kör módosítás.',
             'proposal_valid_until' => now()->addDays(14)->toDateString(),
         ])->assertOk();
+        // Kötelező előleg nélkül nem küldhető ki.
+        $this->actingAs($admin)->postJson('/api/admin/quote-requests/'.$quote->id.'/send-proposal')
+            ->assertUnprocessable()->assertJsonValidationErrors('deposit_percent');
+        $this->actingAs($admin)->patchJson('/api/admin/quote-requests/'.$quote->id, ['deposit_percent' => 30])->assertOk();
         $this->actingAs($admin)->postJson('/api/admin/quote-requests/'.$quote->id.'/send-proposal')
             ->assertOk()->assertJsonPath('data.status', 'quoted');
         $token = null;
         Mail::assertSent(ProposalReady::class, function (ProposalReady $mail) use (&$token) {
             $token = parse_url($mail->portalUrl, PHP_URL_FRAGMENT);
+            // Az ajánlati e-mailben szerepel az előleg összege.
+            $this->assertStringContainsString('97 500 Ft', $mail->render());
             return is_string($token) && strlen($token) === 64;
         });
         $this->postJson('/api/client/project', ['token' => $token])

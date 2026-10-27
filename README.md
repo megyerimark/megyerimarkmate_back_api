@@ -14,6 +14,18 @@ A meglévő **Laravel 13 / PHP 8.3+ / MySQL / Sanctum** projekted kiegészített
 - Opcionális automatikus adminértesítés és ügyfél-visszaigazolás, SMTP vagy helyi naplózó mailer.
 - PHPUnit feature-tesztek a fő API-folyamatokra.
 
+## 0. Frissítés élesben (minden új verziónál)
+
+A szerveren, a backend mappájában (PHP 8.4 kell):
+
+```bash
+bash deploy.sh
+```
+
+A szkript karbantartási módba teszi az oldalt, telepíti a függőségeket, mentést készít, **lefuttatja a migrációkat**, újraépíti a gyorsítótárat, majd visszakapcsolja az oldalt. Ha a Pénzügyek vagy a Kész projektek fül hibát ír, szinte mindig a migráció vagy a `php artisan optimize:clear` maradt el.
+
+Ellenőrzés: Admin → Fiók és biztonság → **Rendszerállapot** (`GET /api/admin/system-status`). Itt látszik a backend verziója, a hiányzó migrációk/táblák, a debug mód, HTTPS, e-mail, 2FA, Stripe, cron és mentés állapota.
+
 ## 1. Telepítés meglévő projektbe
 
 1. **Először készíts biztonsági mentést** a teljes korábbi projektmappáról és a MySQL adatbázisról.

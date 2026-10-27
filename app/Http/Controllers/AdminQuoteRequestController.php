@@ -110,6 +110,10 @@ class AdminQuoteRequestController extends Controller
         if ($quoteRequest->proposal_valid_until->isBefore(today())) {
             throw ValidationException::withMessages(['proposal_valid_until' => 'Az ajánlat érvényessége lejárt.']);
         }
+        $minDeposit = (int) config('portfolio.min_deposit_percent');
+        if ($minDeposit > 0 && (int) $quoteRequest->deposit_percent < $minDeposit) {
+            throw ValidationException::withMessages(['deposit_percent' => "Az ajánlathoz legalább {$minDeposit}% előleget kell megadni (a munka a befizetése után indul)."]);
+        }
         // Existing client links stay valid. Older enquiries get a token only when necessary.
         if ($quoteRequest->portal_token_encrypted) {
             $token = Crypt::decryptString($quoteRequest->portal_token_encrypted);

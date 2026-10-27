@@ -16,6 +16,9 @@ class Stripe
 {
     public const API = 'https://api.stripe.com/v1/';
 
+    /** Csak teszteléshez (pl. stripe-mock); élesben mindig az alapértelmezett Stripe API. */
+    private static function base(): string { return rtrim((string) (config('services.stripe.api_base') ?: self::API), '/').'/'; }
+
     public static function enabled(): bool
     {
         return (bool) config('services.stripe.secret');
@@ -52,8 +55,8 @@ class Stripe
             $client = $client->withHeaders(['Stripe-Version' => $version]);
         }
         $response = $method === 'get'
-            ? $client->get(self::API.$path, $params)
-            : $client->{$method}(self::API.$path, $params);
+            ? $client->get(self::base().$path, $params)
+            : $client->{$method}(self::base().$path, $params);
         if ($response->failed()) {
             // A Stripe hibaüzenete nem tartalmaz kártyaadatot; a kulcsot sosem naplózzuk.
             throw new RuntimeException('Stripe API error ('.$response->status().'): '.($response->json('error.message') ?? 'unknown'));

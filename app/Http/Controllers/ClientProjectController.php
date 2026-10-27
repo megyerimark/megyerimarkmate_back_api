@@ -131,7 +131,16 @@ class ClientProjectController extends Controller
                 }
             });
         }
-        return response()->json(['message' => 'Az ajánlat elfogadását rögzítettük.', 'data' => $this->publicData($quote)])
+        // Kötelező előleg: elfogadás után azonnal a Stripe fizetési oldalára irányítjuk az ügyfelet.
+        $paymentUrl = null;
+        if (\App\Support\DepositCheckout::due($quote)) {
+            try {
+                $paymentUrl = \App\Support\DepositCheckout::create($quote);
+            } catch (\Throwable $exception) {
+                Log::error('Deposit checkout after acceptance failed', ['quote_id' => $quote->id, 'error' => $exception->getMessage()]);
+            }
+        }
+        return response()->json(['message' => 'Az ajánlat elfogadását rögzítettük.', 'data' => $this->publicData($quote), 'payment_url' => $paymentUrl])
             ->header('Cache-Control', 'no-store, private');
     }
 }

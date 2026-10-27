@@ -11,6 +11,9 @@ Artisan::command('inspire', function () {
 // FONTOS: az ütemezőhöz a szerveren egy cron-sor kell (lásd README „Ütemezett feladatok”):
 // * * * * * cd /útvonal/a/projekthez && php artisan schedule:run >> /dev/null 2>&1
 
+// Életjel: a Rendszerállapot panel ebből látja, hogy a cron-sor fut-e.
+Schedule::call(fn () => \Illuminate\Support\Facades\Cache::put('portfolio:scheduler-heartbeat', now()->toDateTimeString(), now()->addDay()))->everyMinute()->name('scheduler-heartbeat');
+
 // Az anonim eseményeket 13 hónapig tartjuk meg, utána törlődnek.
 Schedule::call(fn () => \App\Models\SiteEvent::where('created_at', '<', now()->subDays(400))->delete())->daily();
 

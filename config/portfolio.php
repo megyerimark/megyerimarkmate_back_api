@@ -10,6 +10,9 @@ return [
     // Globális API-kéréskorlát IP-címenként és percenként (DDoS / scraper elleni alapvédelem).
     'api_rate_per_minute' => max(30, (int) env('PORTFOLIO_API_RATE_PER_MINUTE', 300)),
 
+    // Kötelező előleg: ajánlat csak legalább ennyi %-os előleggel küldhető ki (0 = nem kötelező).
+    'min_deposit_percent' => min(100, max(0, (int) env('PORTFOLIO_MIN_DEPOSIT_PERCENT', 30))),
+
     // Az Általános Szerződési Feltételek aktuális verziója – az elfogadáskor rögzítjük. ÁSZF-módosításkor növeld!
     'terms_version' => env('PORTFOLIO_TERMS_VERSION', '2026-11'),
 

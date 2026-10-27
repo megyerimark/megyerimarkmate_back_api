@@ -29,6 +29,7 @@ class AdminDashboardController extends Controller
             'services_total' => Service::count(),
             'tasks_open' => StudioTask::where('is_done', false)->count(),
             'messages_unread' => ProjectMessage::unreadFromClient()->count(),
+            'deposit_min_percent' => (int) config('portfolio.min_deposit_percent'),
             'sites_expiring' => ClientSite::expiringWithin(30)->get(['id', 'name', 'domain', 'domain_expires_on', 'hosting_expires_on', 'ssl_expires_on']),
             'unread_threads' => ProjectMessage::unreadFromClient()
                 ->selectRaw('quote_request_id, COUNT(*) as unread, MAX(created_at) as last_at')

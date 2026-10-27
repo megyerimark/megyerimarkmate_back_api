@@ -3,6 +3,7 @@
 use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminClientSiteController;
 use App\Http\Controllers\AdminFinanceController;
+use App\Http\Controllers\AdminSystemStatusController;
 use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\AdminSecurityController;
 use App\Http\Controllers\AdminWorkspaceController;
@@ -30,56 +31,57 @@ use Illuminate\Support\Facades\Route;
 // Public read-only content. Unpublished projects and inactive services are excluded.
 // A látogatók névtelenek: ezek az útvonalak nem indítanak munkamenetet és nem állítanak be sütit.
 Route::withoutMiddleware([EnsureFrontendRequestsAreStateful::class])->group(function () {
-    Route::get('/services', [PublicContentController::class, 'services'])->middleware('throttle:120,1');
-    Route::get('/projects', [PublicContentController::class, 'projects'])->middleware('throttle:120,1');
-    Route::get('/projects/{slug}', [PublicContentController::class, 'project'])->middleware('throttle:120,1');
-    Route::get('/site-settings', [PublicContentController::class, 'settings'])->middleware('throttle:120,1');
-    Route::get('/testimonials', [PublicContentController::class, 'testimonials'])->middleware('throttle:120,1');
-    Route::get('/sitemap.xml', [PublicContentController::class, 'sitemap'])->middleware('throttle:60,1');
+    Route::get('/services', [PublicContentController::class, 'services'])->middleware('throttle:120,1,get--services');
+    Route::get('/projects', [PublicContentController::class, 'projects'])->middleware('throttle:120,1,get--projects');
+    Route::get('/projects/{slug}', [PublicContentController::class, 'project'])->middleware('throttle:120,1,get--projects-slug');
+    Route::get('/site-settings', [PublicContentController::class, 'settings'])->middleware('throttle:120,1,get--site-settings');
+    Route::get('/testimonials', [PublicContentController::class, 'testimonials'])->middleware('throttle:120,1,get--testimonials');
+    Route::get('/sitemap.xml', [PublicContentController::class, 'sitemap'])->middleware('throttle:60,1,get--sitemap.xml');
     // Sütik és személyes adatok nélküli, aggregált eseményszámlálás.
-    Route::post('/events', [PublicEventController::class, 'store'])->middleware('throttle:120,1');
+    Route::post('/events', [PublicEventController::class, 'store'])->middleware('throttle:120,1,post--events');
 });
 
 // Public enquiry submission: no personal information in the response besides the reference ID.
-Route::post('/quote-requests', [QuoteRequestController::class, 'store'])->middleware('throttle:5,1');
+Route::post('/quote-requests', [QuoteRequestController::class, 'store'])->middleware('throttle:5,1,post--quote-requests');
 // Private capability token lives in the request body (never in a server-logged URL).
-Route::post('/client/project', [ClientProjectController::class, 'show'])->middleware('throttle:20,1');
-Route::post('/client/project/accept', [ClientProjectController::class, 'accept'])->middleware('throttle:5,1');
-Route::post('/client/project/collaboration', [ProjectCollaborationController::class, 'clientIndex'])->middleware('throttle:20,1');
-Route::post('/client/project/messages', [ProjectCollaborationController::class, 'clientMessage'])->middleware('throttle:5,1');
-Route::post('/client/project/documents/{document}/download', [ProjectCollaborationController::class, 'clientDownload'])->middleware('throttle:30,1');
-Route::post('/client/project/deposit/checkout', [ClientPaymentController::class, 'depositCheckout'])->middleware('throttle:10,1');
-Route::post('/client/project/maintenance/checkout', [ClientPaymentController::class, 'maintenanceCheckout'])->middleware('throttle:10,1');
-Route::post('/client/project/maintenance/portal', [ClientPaymentController::class, 'billingPortal'])->middleware('throttle:10,1');
+Route::post('/client/project', [ClientProjectController::class, 'show'])->middleware('throttle:20,1,post--client-project');
+Route::post('/client/project/accept', [ClientProjectController::class, 'accept'])->middleware('throttle:5,1,post--client-project-accept');
+Route::post('/client/project/collaboration', [ProjectCollaborationController::class, 'clientIndex'])->middleware('throttle:20,1,post--client-project-collaboration');
+Route::post('/client/project/messages', [ProjectCollaborationController::class, 'clientMessage'])->middleware('throttle:5,1,post--client-project-messages');
+Route::post('/client/project/documents/{document}/download', [ProjectCollaborationController::class, 'clientDownload'])->middleware('throttle:30,1,post--client-project-documents-document-download');
+Route::post('/client/project/deposit/checkout', [ClientPaymentController::class, 'depositCheckout'])->middleware('throttle:10,1,post--client-project-deposit-checkout');
+Route::post('/client/project/maintenance/checkout', [ClientPaymentController::class, 'maintenanceCheckout'])->middleware('throttle:10,1,post--client-project-maintenance-checkout');
+Route::post('/client/project/maintenance/portal', [ClientPaymentController::class, 'billingPortal'])->middleware('throttle:10,1,post--client-project-maintenance-portal');
 // Stripe → szerver (aláírt események). Nincs munkamenet és CSRF; az aláírás a védelem.
 Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle'])
-    ->withoutMiddleware([EnsureFrontendRequestsAreStateful::class])->middleware('throttle:300,1');
-Route::get('/consultations/available', [ConsultationController::class, 'available'])->middleware('throttle:40,1');
-Route::post('/consultations/book', [ConsultationController::class, 'book'])->middleware('throttle:5,1');
+    ->withoutMiddleware([EnsureFrontendRequestsAreStateful::class])->middleware('throttle:300,1,post--stripe-webhook');
+Route::get('/consultations/available', [ConsultationController::class, 'available'])->middleware('throttle:40,1,get--consultations-available');
+Route::post('/consultations/book', [ConsultationController::class, 'book'])->middleware('throttle:5,1,post--consultations-book');
 
 Route::middleware(['auth:sanctum', 'can:access-admin', 'admin.2fa'])->prefix('admin')->group(function () {
     Route::get('/me', fn (Request $request) => response()->json([
         'data' => $request->user()->only(['id', 'name', 'email']),
     ]));
-    Route::put('/password', [AdminAuthController::class, 'changePassword'])->middleware('throttle:5,1');
+    Route::put('/password', [AdminAuthController::class, 'changePassword'])->middleware('throttle:5,1,put--password');
     Route::get('/security', [AdminSecurityController::class, 'status']);
-    Route::put('/security/two-factor', [AdminSecurityController::class, 'setTwoFactor'])->middleware('throttle:5,1');
+    Route::get('/system-status', [AdminSystemStatusController::class, 'index']);
+    Route::put('/security/two-factor', [AdminSecurityController::class, 'setTwoFactor'])->middleware('throttle:5,1,put--security-two-factor');
     Route::get('/security/sessions', [AdminSecurityController::class, 'sessions']);
-    Route::delete('/security/sessions/others', [AdminSecurityController::class, 'revokeOtherSessions'])->middleware('throttle:5,1');
+    Route::delete('/security/sessions/others', [AdminSecurityController::class, 'revokeOtherSessions'])->middleware('throttle:5,1,delete--security-sessions-others');
     Route::get('/dashboard', [AdminDashboardController::class, 'index']);
     Route::get('/maintenance-agreements', [AdminMaintenanceController::class, 'index']);
-    Route::post('/maintenance-agreements', [AdminMaintenanceController::class, 'store'])->middleware('throttle:20,1');
-    Route::patch('/maintenance-agreements/{maintenanceAgreement}', [AdminMaintenanceController::class, 'update'])->middleware('throttle:20,1');
-    Route::post('/maintenance-agreements/{maintenanceAgreement}/cancel-subscription', [AdminMaintenanceController::class, 'cancelSubscription'])->middleware('throttle:5,1');
+    Route::post('/maintenance-agreements', [AdminMaintenanceController::class, 'store'])->middleware('throttle:20,1,post--maintenance-agreements');
+    Route::patch('/maintenance-agreements/{maintenanceAgreement}', [AdminMaintenanceController::class, 'update'])->middleware('throttle:20,1,patch--maintenance-agreements-maintenanceAgreement');
+    Route::post('/maintenance-agreements/{maintenanceAgreement}/cancel-subscription', [AdminMaintenanceController::class, 'cancelSubscription'])->middleware('throttle:5,1,post--maintenance-agreements-maintenanceAgreement-cancel-subscription');
     Route::get('/quote-board', [AdminWorkspaceController::class, 'board']);
     Route::get('/workspace/projects', [AdminWorkspaceController::class, 'projects']);
     Route::get('/workspace/communications', [AdminWorkspaceController::class, 'communications']);
     Route::get('/workspace/tasks', [AdminWorkspaceController::class, 'tasks']);
-    Route::post('/workspace/tasks', [AdminWorkspaceController::class, 'storeTask'])->middleware('throttle:30,1');
+    Route::post('/workspace/tasks', [AdminWorkspaceController::class, 'storeTask'])->middleware('throttle:30,1,post--workspace-tasks');
     Route::patch('/workspace/tasks/{studioTask}', [AdminWorkspaceController::class, 'updateTask']);
     Route::delete('/workspace/tasks/{studioTask}', [AdminWorkspaceController::class, 'destroyTask']);
     Route::get('/workspace/client-notes', [AdminWorkspaceController::class, 'notes']);
-    Route::post('/workspace/client-notes', [AdminWorkspaceController::class, 'storeNote'])->middleware('throttle:30,1');
+    Route::post('/workspace/client-notes', [AdminWorkspaceController::class, 'storeNote'])->middleware('throttle:30,1,post--workspace-client-notes');
     Route::delete('/workspace/client-notes/{studioClientNote}', [AdminWorkspaceController::class, 'destroyNote']);
     Route::get('/clients', [AdminDashboardController::class, 'clients']);
     Route::get('/clients/quotes', [AdminDashboardController::class, 'clientQuotes']);
@@ -90,27 +92,27 @@ Route::middleware(['auth:sanctum', 'can:access-admin', 'admin.2fa'])->prefix('ad
 
     Route::get('/growth', [AdminGrowthController::class, 'index']);
     Route::get('/sites', [AdminClientSiteController::class, 'index']);
-    Route::post('/sites', [AdminClientSiteController::class, 'store'])->middleware('throttle:30,1');
-    Route::patch('/sites/{clientSite}', [AdminClientSiteController::class, 'update'])->middleware('throttle:60,1');
+    Route::post('/sites', [AdminClientSiteController::class, 'store'])->middleware('throttle:30,1,post--sites');
+    Route::patch('/sites/{clientSite}', [AdminClientSiteController::class, 'update'])->middleware('throttle:60,1,patch--sites-clientSite');
     Route::delete('/sites/{clientSite}', [AdminClientSiteController::class, 'destroy']);
     Route::get('/vault', [AdminClientSiteController::class, 'vault']);
     Route::get('/finance/summary', [AdminFinanceController::class, 'summary']);
     Route::get('/finance/entries', [AdminFinanceController::class, 'entries']);
-    Route::post('/finance/entries', [AdminFinanceController::class, 'store'])->middleware('throttle:60,1');
-    Route::patch('/finance/entries/{financeEntry}', [AdminFinanceController::class, 'update'])->middleware('throttle:60,1');
+    Route::post('/finance/entries', [AdminFinanceController::class, 'store'])->middleware('throttle:60,1,post--finance-entries');
+    Route::patch('/finance/entries/{financeEntry}', [AdminFinanceController::class, 'update'])->middleware('throttle:60,1,patch--finance-entries-financeEntry');
     Route::delete('/finance/entries/{financeEntry}', [AdminFinanceController::class, 'destroy']);
-    Route::put('/finance/settings', [AdminFinanceController::class, 'updateSettings'])->middleware('throttle:20,1');
-    Route::put('/vault', [AdminClientSiteController::class, 'saveVault'])->middleware('throttle:5,1');
-    Route::get('/exports/quote-requests', [AdminQuoteRequestController::class, 'export'])->middleware('throttle:10,1');
+    Route::put('/finance/settings', [AdminFinanceController::class, 'updateSettings'])->middleware('throttle:20,1,put--finance-settings');
+    Route::put('/vault', [AdminClientSiteController::class, 'saveVault'])->middleware('throttle:5,1,put--vault');
+    Route::get('/exports/quote-requests', [AdminQuoteRequestController::class, 'export'])->middleware('throttle:10,1,get--exports-quote-requests');
     Route::post('/quote-requests/{quoteRequest}/contacted', [AdminQuoteRequestController::class, 'markContacted']);
-    Route::post('/quote-requests/{quoteRequest}/deposit-paid', [AdminQuoteRequestController::class, 'markDepositPaid'])->middleware('throttle:10,1');
+    Route::post('/quote-requests/{quoteRequest}/deposit-paid', [AdminQuoteRequestController::class, 'markDepositPaid'])->middleware('throttle:10,1,post--quote-requests-quoteRequest-deposit-paid');
     Route::apiResource('testimonials', AdminTestimonialController::class)->except('show');
 
     Route::get('/quote-requests', [AdminQuoteRequestController::class, 'index']);
     Route::get('/quote-requests/{quoteRequest}', [AdminQuoteRequestController::class, 'show']);
     Route::patch('/quote-requests/{quoteRequest}', [AdminQuoteRequestController::class, 'update']);
-    Route::post('/quote-requests/{quoteRequest}/send-proposal', [AdminQuoteRequestController::class, 'sendProposal'])->middleware('throttle:10,1');
-    Route::post('/quote-requests/{quoteRequest}/rotate-client-access', [AdminQuoteRequestController::class, 'rotateClientAccess'])->middleware('throttle:5,1');
+    Route::post('/quote-requests/{quoteRequest}/send-proposal', [AdminQuoteRequestController::class, 'sendProposal'])->middleware('throttle:10,1,post--quote-requests-quoteRequest-send-proposal');
+    Route::post('/quote-requests/{quoteRequest}/rotate-client-access', [AdminQuoteRequestController::class, 'rotateClientAccess'])->middleware('throttle:5,1,post--quote-requests-quoteRequest-rotate-client-access');
     Route::delete('/quote-requests/{quoteRequest}', [AdminQuoteRequestController::class, 'destroy']);
     Route::get('/quote-requests/{quoteRequest}/collaboration', [ProjectCollaborationController::class, 'adminIndex']);
     Route::post('/quote-requests/{quoteRequest}/messages', [ProjectCollaborationController::class, 'adminMessage']);
