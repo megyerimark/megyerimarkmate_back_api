@@ -169,7 +169,7 @@ Ez futtatja naponta:
 
 **Bot-védelem (Cloudflare Turnstile).** Az ajánlatkérés (űrlap és kvíz), az időpontfoglalás, a hírlevél-feliratkozás, az admin belépés és az elfelejtett jelszó űrlap a honeypot és a kéréskorlát mellett Turnstile-ellenőrzést is kap (`App\Http\Middleware\VerifyTurnstile`, alias: `turnstile`). Beállítás:
 1. dash.cloudflare.com → **Turnstile** → *Add widget* → domain: `megyerimarkmate.hu` (és `www.`), mód: **Managed**.
-2. A `.env`-be: `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`, `TURNSTILE_HOSTNAMES=megyerimarkmate.hu,www.megyerimarkmate.hu`, majd `php artisan config:cache`.
+2. A `.env`-be: `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`, `TURNSTILE_HOSTNAMES=megyerimarkmate.hu,www.megyerimarkmate.hu`, majd `bash deploy.sh` (vagy `php artisan optimize:clear`). Megosztott tárhelyen (Rackhost) **ne** futtass `config:cache`-t – lásd fent.
 3. A frontend a nyilvános kulcsot a `/api/site-settings` válaszból kapja – ott nincs külön teendő.
 
 Üres titkos kulccsal a védelem ki van kapcsolva (helyi fejlesztés, tesztek). Bekapcsolva a szerver minden érintett kérésnél ellenőrzi a kulcsot a Cloudflare-nél; ha a Cloudflare nem elérhető, a kérést elutasítja (zárt hibakezelés). Más domainen kiállított kulcs nem fogadható el. Helyi kipróbáláshoz a Cloudflare tesztkulcsai: site `1x00000000000000000000AA`, secret `1x0000000000000000000000000000000AA`.
