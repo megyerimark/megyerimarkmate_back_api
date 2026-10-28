@@ -56,6 +56,9 @@ class QuoteRequestController extends Controller
         return response()->json([
             'message' => 'Az ajánlatkérés sikeresen beérkezett.',
             'reference' => $quote->id,
+            // Az ügyfél a visszaigazoláson látja, hogy az akciós kedvezmény rögzült.
+            'promo_percent' => $quote->promo_percent,
+            'promo_title' => $quote->promo_title,
         ], 201);
     }
 }
