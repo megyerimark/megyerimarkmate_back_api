@@ -19,7 +19,7 @@ class QuoteRequest extends Model
         'source', 'utm_source', 'utm_medium', 'utm_campaign', 'referrer_host', 'landing_path',
     ];
 
-    protected $hidden = ['portal_token_hash', 'portal_token_encrypted', 'deposit_checkout_url'];
+    protected $hidden = ['portal_token_hash', 'portal_token_encrypted', 'deposit_checkout_url', 'final_checkout_url'];
 
     public function milestones(): HasMany
     {
@@ -44,6 +44,24 @@ class QuoteRequest extends Model
     {
         if (! $this->deposit_percent || ! $this->quoted_price_huf) return null;
         return (int) round($this->quoted_price_huf * $this->deposit_percent / 100);
+    }
+
+    /**
+     * A projekt lezárása után még fizetendő összeg forintban. Lezárás után a rögzített érték számít
+     * (az ajánlati ár mínusz a ténylegesen befizetett előleg), előtte a várható összeg.
+     */
+    public function remainingAmount(): int
+    {
+        if ($this->final_amount_huf !== null) return (int) $this->final_amount_huf;
+        $paidDeposit = $this->deposit_paid_at ? (int) $this->depositAmount() : 0;
+        return max(0, (int) $this->quoted_price_huf - $paidDeposit);
+    }
+
+    /** A kód / átadási csomag átadható-e: a projekt lezárva, és nincs (vagy már rendezve) fennmaradó összeg. */
+    public function handoverUnlocked(): bool
+    {
+        return $this->status === 'completed' && $this->completed_at
+            && ($this->remainingAmount() === 0 || $this->final_paid_at !== null);
     }
 
     /** Az ajánlat lényeges tartalmának ujjlenyomata – az elfogadáskor rögzítjük (szerződéses bizonyíték). */
@@ -113,6 +131,11 @@ class QuoteRequest extends Model
             'deposit_percent' => 'integer',
             'deposit_paid_at' => 'datetime',
             'deposit_checkout_expires_at' => 'datetime',
+            'completed_at' => 'datetime',
+            'final_amount_huf' => 'integer',
+            'final_paid_at' => 'datetime',
+            'final_checkout_expires_at' => 'datetime',
+            'handed_over_at' => 'datetime',
             'acceptance_evidence' => 'array',
         ];
     }

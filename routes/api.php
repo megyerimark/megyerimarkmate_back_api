@@ -54,6 +54,7 @@ Route::post('/client/project/collaboration', [ProjectCollaborationController::cl
 Route::post('/client/project/messages', [ProjectCollaborationController::class, 'clientMessage'])->middleware('throttle:5,1,post--client-project-messages');
 Route::post('/client/project/documents/{document}/download', [ProjectCollaborationController::class, 'clientDownload'])->middleware('throttle:30,1,post--client-project-documents-document-download');
 Route::post('/client/project/deposit/checkout', [ClientPaymentController::class, 'depositCheckout'])->middleware('throttle:10,1,post--client-project-deposit-checkout');
+Route::post('/client/project/final/checkout', [ClientPaymentController::class, 'finalCheckout'])->middleware('throttle:10,1,post--client-project-final-checkout');
 Route::post('/client/project/maintenance/checkout', [ClientPaymentController::class, 'maintenanceCheckout'])->middleware('throttle:10,1,post--client-project-maintenance-checkout');
 Route::post('/client/project/maintenance/portal', [ClientPaymentController::class, 'billingPortal'])->middleware('throttle:10,1,post--client-project-maintenance-portal');
 // Stripe → szerver (aláírt események). Nincs munkamenet és CSRF; az aláírás a védelem.
@@ -116,6 +117,9 @@ Route::middleware(['auth:sanctum', 'can:access-admin', 'admin.2fa'])->prefix('ad
     Route::delete('/newsletter/{subscriber}', [\App\Http\Controllers\AdminNewsletterController::class, 'destroy']);
     Route::get('/exports/newsletter', [\App\Http\Controllers\AdminNewsletterController::class, 'export'])->middleware('throttle:10,1,get--exports-newsletter');
     Route::post('/quote-requests/{quoteRequest}/contacted', [AdminQuoteRequestController::class, 'markContacted']);
+    Route::post('/quote-requests/{quoteRequest}/complete', [AdminQuoteRequestController::class, 'complete'])->middleware('throttle:10,1,post--quote-requests-quoteRequest-complete');
+    Route::post('/quote-requests/{quoteRequest}/final-paid', [AdminQuoteRequestController::class, 'markFinalPaid'])->middleware('throttle:10,1,post--quote-requests-quoteRequest-final-paid');
+    Route::post('/quote-requests/{quoteRequest}/handover', [AdminQuoteRequestController::class, 'handover'])->middleware('throttle:10,1,post--quote-requests-quoteRequest-handover');
     Route::post('/quote-requests/{quoteRequest}/deposit-paid', [AdminQuoteRequestController::class, 'markDepositPaid'])->middleware('throttle:10,1,post--quote-requests-quoteRequest-deposit-paid');
     Route::apiResource('testimonials', AdminTestimonialController::class)->except('show');
 

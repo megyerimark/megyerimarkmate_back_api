@@ -83,6 +83,12 @@ A program rejtve kéri a jelszót (legalább 12 karakter). Az adminfelületre **
 
 **Fontos Angular sajátosság:** alapértelmezésben az Angular HttpClient XSRF interceptora nem minden esetben csatolja a fejlécet abszolút cross-origin URL-ekhez. Helyi fejlesztéshez javasolt Angular dev-server proxy, amely az `/api`, `/admin` és `/sanctum` útvonalakat a Laravelhez továbbítja. Így relatív URL-ekkel működik az XSRF interceptor. Élesítéskor szintén a cookie/same-site/CORS szabályokat a tényleges domainekhez kell igazítani.
 
+### Projektlezárás és kódátadás
+
+1. **Projekt kész** (admin → ajánlat → „Projektlezárás és kódátadás”): az ügyfél végleges e-mailt kap a fennmaradó összeggel (ajánlati ár − befizetett előleg) és a fizetési linkkel. Csak elfogadott projekt zárható le, és csak ha az előleg már beérkezett. Sikertelen e-mail-küldésnél a projekt állapota nem változik. A „Lezárva” státusz a sima státuszmentéssel nem állítható be.
+2. **Fennmaradó összeg**: az ügyfél a projektoldalon bankkártyával fizetheti (Stripe Checkout, `metadata.type = final`), vagy átutalás után az admin jelöli „Átutalás beérkezett”-nek. Mindkettő bevételként rögzül a Pénzügyekben („Végszámla”).
+3. **Kódátadás**: az „Átadandó kód / csomag” jelölésű feltöltések (ZIP vagy PDF, `PORTFOLIO_DELIVERABLE_MAX_MB`) az ügyfélnek zárolva látszanak. A „Kód átadása” gomb (`POST /api/admin/quote-requests/{id}/handover`) **szerveroldalon is zárolt**, amíg a fennmaradó összeg nincs kifizetve. Átadáskor az ügyfél e-mailt kap, és innentől letöltheti a csomagot.
+
 ## 3. Ajánlatbeküldés minta
 
 ```bash
