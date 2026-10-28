@@ -17,10 +17,20 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->throttleApi();
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
         // Reverse proxy / tárhely-terheléselosztó mögött is felismerjük a HTTPS-t (HSTS, secure süti).
-        $middleware->trustProxies(at: env('TRUSTED_PROXIES') ? explode(',', env('TRUSTED_PROXIES')) : null);
+        // TRUSTED_PROXIES=cloudflare: csak a Cloudflare címeiről érkező X-Forwarded-For fejlécet fogadjuk el,
+        // így a közvetlenül a szerverhez forduló támadó nem hamisíthat IP-címet (a kéréskorlátok IP-alapúak).
+        $proxies = env('TRUSTED_PROXIES');
+        $middleware->trustProxies(at: match (true) {
+            ! $proxies => null,
+            $proxies === 'cloudflare' => require __DIR__.'/cloudflare-ips.php',
+            default => explode(',', $proxies),
+        });
         // Anonim eseményszámláló: nincs munkamenet, így CSRF-token sem.
         $middleware->validateCsrfTokens(except: ['api/events', 'api/stripe/webhook']);
-        $middleware->alias(['admin.2fa' => \App\Http\Middleware\RequireAdminTwoFactor::class]);
+        $middleware->alias([
+            'admin.2fa' => \App\Http\Middleware\RequireAdminTwoFactor::class,
+            'turnstile' => \App\Http\Middleware\VerifyTurnstile::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
