@@ -5,6 +5,10 @@
 @section('content')
 <p style="color:#c7d0ec;line-height:1.8;">Kedves {{ $quote->customer_name }}! A #{{ $quote->id }} számú megkeresésed alapján összeállítottam a javaslatomat.</p>
 <table role="presentation" width="100%" style="border:1px solid #38457e;border-radius:12px;background:#162247;"><tr><td style="padding:22px;">
+@if ($quote->promo_percent && $quote->list_price_huf)
+<span style="color:#adb9e1;font-size:11px;letter-spacing:1.3px;">AKCIÓ ELŐTTI ÁR</span><br><span style="font-size:17px;color:#aeb6d6;text-decoration:line-through;">{{ number_format($quote->list_price_huf, 0, ',', ' ') }} Ft</span><br>
+<span style="color:#cdbfff;font-size:12px;">✦ Akciós kedvezmény: −{{ $quote->promo_percent }}%@if($quote->promo_title) ({{ $quote->promo_title }})@endif – az ajánlatkérés beküldésekor rögzítve</span><br><br>
+@endif
 <span style="color:#adb9e1;font-size:11px;letter-spacing:1.3px;">AJÁNLATI ÖSSZEG</span><br><strong style="font-size:29px;color:#fff;">{{ number_format($quote->quoted_price_huf, 0, ',', ' ') }} Ft</strong><br>
 <span style="font-size:12px;color:#bac6e5;">Érvényes: {{ $quote->proposal_valid_until->format('Y. m. d.') }} napjáig</span>
 @if ($quote->depositAmount())

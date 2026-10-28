@@ -56,6 +56,8 @@ class AdminQuoteRequestController extends Controller
             'status' => ['sometimes', 'required', Rule::in(self::STATUSES)],
             'admin_notes' => ['sometimes', 'nullable', 'string', 'max:5000'],
             'quoted_price_huf' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:999999999'],
+            // Akció előtti ár: csak akciós ajánlatkérésnél, és nem lehet kisebb az ajánlati árnál.
+            'list_price_huf' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:999999999'],
             'deposit_percent' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:100'],
             'proposal_summary' => ['sometimes', 'nullable', 'string', 'max:7000'],
             'proposal_schedule' => ['sometimes', 'nullable', 'string', 'max:3000'],
@@ -82,7 +84,7 @@ class AdminQuoteRequestController extends Controller
                 throw ValidationException::withMessages(['status' => 'Ez az állapotváltás itt nem engedélyezett. Ajánlatküldéshez és ügyfél-elfogadáshoz a megfelelő folyamatot használd.']);
             }
         }
-        $proposalFields = ['quoted_price_huf', 'deposit_percent', 'proposal_summary', 'proposal_schedule', 'proposal_terms', 'proposal_valid_until'];
+        $proposalFields = ['quoted_price_huf', 'list_price_huf', 'deposit_percent', 'proposal_summary', 'proposal_schedule', 'proposal_terms', 'proposal_valid_until'];
         if ($quoteRequest->quoted_at && collect($proposalFields)->contains(fn ($key) => array_key_exists($key, $data) &&
             ($key === 'proposal_valid_until' ? $quoteRequest->{$key}?->format('Y-m-d') : $quoteRequest->{$key}) != $data[$key])) {
             throw ValidationException::withMessages(['proposal' => 'Az elküldött ajánlat tartalma nem módosítható csendben.']);
@@ -93,6 +95,15 @@ class AdminQuoteRequestController extends Controller
         foreach (['status', 'admin_notes', 'follow_up_at', ...$proposalFields] as $key) {
             if (array_key_exists($key, $data)) {
                 $quoteRequest->{$key} = $data[$key];
+            }
+        }
+        if ($quoteRequest->list_price_huf !== null) {
+            if (! $quoteRequest->promo_percent) {
+                throw ValidationException::withMessages(['list_price_huf' => 'Akció előtti ár csak akció idején beküldött ajánlatkérésnél adható meg.']);
+            }
+            $max = $quoteRequest->maxPromoPrice();
+            if ($quoteRequest->quoted_price_huf && $max !== null && $quoteRequest->quoted_price_huf > $max) {
+                throw ValidationException::withMessages(['quoted_price_huf' => 'A beküldéskor rögzített −'.$quoteRequest->promo_percent.'% kedvezmény miatt az ajánlati ár legfeljebb '.number_format($max, 0, ',', ' ').' Ft lehet.']);
             }
         }
         $quoteRequest->save();
@@ -110,6 +121,15 @@ class AdminQuoteRequestController extends Controller
         }
         if (! $quoteRequest->quoted_price_huf || ! $quoteRequest->proposal_summary || ! $quoteRequest->proposal_valid_until) {
             throw ValidationException::withMessages(['proposal' => 'A küldéshez összeg, részletes ajánlati tartalom és érvényességi dátum szükséges.']);
+        }
+        // Akciós ajánlatkérés: az ajánlatban az akció előtti és az akciós ár is szerepel, a kedvezmény ellenőrizhető.
+        if ($quoteRequest->promo_percent) {
+            if (! $quoteRequest->list_price_huf) {
+                throw ValidationException::withMessages(['list_price_huf' => 'Ez az ajánlatkérés akció idején érkezett (−'.$quoteRequest->promo_percent.'%). Add meg az akció előtti árat, hogy az ügyfél lássa a kedvezményt.']);
+            }
+            if ($quoteRequest->quoted_price_huf > $quoteRequest->maxPromoPrice()) {
+                throw ValidationException::withMessages(['quoted_price_huf' => 'Az ajánlati ár legfeljebb '.number_format($quoteRequest->maxPromoPrice(), 0, ',', ' ').' Ft lehet (−'.$quoteRequest->promo_percent.'% kedvezmény).']);
+            }
         }
         if ($quoteRequest->proposal_valid_until->isBefore(today())) {
             throw ValidationException::withMessages(['proposal_valid_until' => 'Az ajánlat érvényessége lejárt.']);

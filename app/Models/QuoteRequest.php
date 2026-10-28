@@ -64,13 +64,23 @@ class QuoteRequest extends Model
             && ($this->remainingAmount() === 0 || $this->final_paid_at !== null);
     }
 
+    /** Akciós ajánlatkérésnél a legmagasabb megengedett ajánlati ár: akció előtti ár − rögzített kedvezmény. */
+    public function maxPromoPrice(): ?int
+    {
+        if (! $this->promo_percent || ! $this->list_price_huf) return null;
+        return (int) round($this->list_price_huf * (100 - (int) $this->promo_percent) / 100);
+    }
+
     /** Az ajánlat lényeges tartalmának ujjlenyomata – az elfogadáskor rögzítjük (szerződéses bizonyíték). */
     public function proposalFingerprint(): string
     {
-        return hash('sha256', json_encode([
+        $fields = [
             $this->id, $this->quoted_price_huf, $this->deposit_percent, $this->proposal_summary,
             $this->proposal_schedule, $this->proposal_terms, $this->proposal_valid_until?->format('Y-m-d'),
-        ], JSON_UNESCAPED_UNICODE));
+        ];
+        // Csak akkor kerül bele, ha van: a korábbi (akció előtti ár nélküli) ujjlenyomatok változatlanok maradnak.
+        if ($this->list_price_huf !== null) $fields[] = ['list_price_huf' => $this->list_price_huf, 'promo_percent' => $this->promo_percent];
+        return hash('sha256', json_encode($fields, JSON_UNESCAPED_UNICODE));
     }
 
     public function messages(): HasMany
@@ -128,6 +138,7 @@ class QuoteRequest extends Model
             'proposal_accepted_at' => 'datetime',
             'portal_token_expires_at' => 'datetime',
             'quoted_price_huf' => 'integer',
+            'list_price_huf' => 'integer',
             'deposit_percent' => 'integer',
             'deposit_paid_at' => 'datetime',
             'deposit_checkout_expires_at' => 'datetime',
