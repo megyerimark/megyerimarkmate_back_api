@@ -59,40 +59,9 @@ class StripeWebhookController extends Controller
     private function checkoutCompleted(array $session): void
     {
         $meta = $session['metadata'] ?? [];
-        if (($meta['type'] ?? null) === 'deposit' && ($session['payment_status'] ?? null) === 'paid') {
-            $amount = intdiv((int) ($session['amount_total'] ?? 0), 100);
-            // Sorzárolás: két, egyszerre érkező webhook (két kifizetett munkamenet) közül csak az egyik lehet az „első”.
-            [$quote, $duplicate] = DB::transaction(function () use ($meta) {
-                $quote = QuoteRequest::whereKey($meta['quote_request_id'] ?? 0)->lockForUpdate()->first();
-                if (! $quote) return [null, false];
-                if ($quote->deposit_paid_at) return [$quote, true];
-                $quote->forceFill([
-                    'deposit_paid_at' => now(), 'deposit_paid_via' => 'stripe',
-                    'deposit_checkout_session_id' => null, 'deposit_checkout_url' => null, 'deposit_checkout_expires_at' => null,
-                ])->save();
-                return [$quote, false];
-            });
-            if (! $quote) return;
-            if ($duplicate && FinanceEntry::where('external_ref', 'stripe:'.$session['id'])->exists()) {
-                return; // ugyanaz a munkamenet, csak más eseményazonosítóval érkezett újra
-            }
-            if ($duplicate) {
-                // Az előleg már rendezve volt (másik fülön / átutalással), mégis befizettek egy újabbat.
-                // A pénz beérkezett, ezért rögzítjük, és szólunk, hogy vissza kell téríteni.
-                Log::warning('Duplicate deposit payment', ['quote_id' => $quote->id, 'session' => $session['id'] ?? null]);
-                FinanceEntry::recordIncome('stripe:'.$session['id'], $amount, 'Előleg – dupla, visszatérítendő',
-                    'DUPLA előleg – #'.$quote->id.' '.$quote->customer_name.' (visszatérítés után töröld)', $quote->id);
-                $this->notify('FIGYELEM: dupla előlegfizetés – '.$quote->customer_name, [
-                    'Projekt: #'.$quote->id, 'Összeg: '.number_format($amount, 0, ',', ' ').' Ft',
-                    'Az előleg már korábban rendezve volt ('.($quote->deposit_paid_via === 'transfer' ? 'átutalással' : 'kártyával').').',
-                    'Térítsd vissza a Stripe Dashboardon (Payments → a fizetés → Refund), majd töröld a tételt a Pénzügyekből.',
-                ]);
-                return;
-            }
-            FinanceEntry::recordIncome('stripe:'.$session['id'], $amount, 'Előleg', 'Előleg – #'.$quote->id.' '.$quote->customer_name, $quote->id);
-            $this->notify('Előleg beérkezett: '.$quote->customer_name, [
-                'Projekt: #'.$quote->id, 'Összeg: '.number_format($amount, 0, ',', ' ').' Ft', 'A munka megkezdhető.',
-            ]);
+        $kind = $meta['type'] ?? null;
+        if (in_array($kind, ['deposit', 'final'], true) && ($session['payment_status'] ?? null) === 'paid') {
+            $this->oneTimePaymentCompleted($session, $kind);
             return;
         }
         if (($meta['type'] ?? null) === 'maintenance' && ! empty($session['subscription'])) {
@@ -110,6 +79,48 @@ class StripeWebhookController extends Controller
                 'Csomag: '.$agreement->plan_name, 'Havidíj: '.number_format($agreement->monthly_fee_huf, 0, ',', ' ').' Ft',
             ]);
         }
+    }
+
+    /** Előleg vagy (projektlezárás utáni) fennmaradó összeg befizetése. */
+    private function oneTimePaymentCompleted(array $session, string $kind): void
+    {
+        $meta = $session['metadata'] ?? [];
+        $label = $kind === 'final' ? 'Fennmaradó összeg' : 'Előleg';
+        $category = $kind === 'final' ? 'Végszámla' : 'Előleg';
+        $amount = intdiv((int) ($session['amount_total'] ?? 0), 100);
+        // Sorzárolás: két, egyszerre érkező webhook (két kifizetett munkamenet) közül csak az egyik lehet az „első”.
+        [$quote, $duplicate] = DB::transaction(function () use ($meta, $kind) {
+            $quote = QuoteRequest::whereKey($meta['quote_request_id'] ?? 0)->lockForUpdate()->first();
+            if (! $quote) return [null, false];
+            if ($quote->{$kind.'_paid_at'}) return [$quote, true];
+            $quote->forceFill([
+                $kind.'_paid_at' => now(), $kind.'_paid_via' => 'stripe',
+                $kind.'_checkout_session_id' => null, $kind.'_checkout_url' => null, $kind.'_checkout_expires_at' => null,
+            ])->save();
+            return [$quote, false];
+        });
+        if (! $quote) return;
+        if ($duplicate && FinanceEntry::where('external_ref', 'stripe:'.$session['id'])->exists()) {
+            return; // ugyanaz a munkamenet, csak más eseményazonosítóval érkezett újra
+        }
+        if ($duplicate) {
+            // Az összeg már rendezve volt (másik fülön / átutalással), mégis befizettek egy újabbat.
+            // A pénz beérkezett, ezért rögzítjük, és szólunk, hogy vissza kell téríteni.
+            Log::warning('Duplicate one-time payment', ['quote_id' => $quote->id, 'kind' => $kind, 'session' => $session['id'] ?? null]);
+            FinanceEntry::recordIncome('stripe:'.$session['id'], $amount, $category.' – dupla, visszatérítendő',
+                'DUPLA '.mb_strtolower($label).' – #'.$quote->id.' '.$quote->customer_name.' (visszatérítés után töröld)', $quote->id);
+            $this->notify('FIGYELEM: dupla fizetés ('.mb_strtolower($label).') – '.$quote->customer_name, [
+                'Projekt: #'.$quote->id, 'Összeg: '.number_format($amount, 0, ',', ' ').' Ft',
+                'Ez az összeg már korábban rendezve volt ('.($quote->{$kind.'_paid_via'} === 'transfer' ? 'átutalással' : 'kártyával').').',
+                'Térítsd vissza a Stripe Dashboardon (Payments → a fizetés → Refund), majd töröld a tételt a Pénzügyekből.',
+            ]);
+            return;
+        }
+        FinanceEntry::recordIncome('stripe:'.$session['id'], $amount, $category, $label.' – #'.$quote->id.' '.$quote->customer_name, $quote->id);
+        $this->notify($label.' beérkezett: '.$quote->customer_name, [
+            'Projekt: #'.$quote->id, 'Összeg: '.number_format($amount, 0, ',', ' ').' Ft',
+            $kind === 'final' ? 'A kód most már átadható (admin → a projekt → „Kód átadása”).' : 'A munka megkezdhető.',
+        ]);
     }
 
     private function agreementForInvoice(array $invoice): ?MaintenanceAgreement

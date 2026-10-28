@@ -9,7 +9,9 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Előleg-fizetés Stripe Checkout munkamenet – az elfogadáskor és a „Fizetés” gombnál is ez készül.
+ * Előleg- és végösszeg-fizetés Stripe Checkout munkamenete – az elfogadáskor, a lezáráskor és a „Fizetés” gombnál is ez készül.
+ * A $kind 'deposit' (előleg) vagy 'final' (projektlezárás utáni fennmaradó összeg); mindkettő a saját
+ * `{kind}_checkout_*` és `{kind}_paid_at` oszlopait használja.
  *
  * Dupla fizetés elleni védelem:
  * - a nyitott munkamenetet eltároljuk, és amíg él, mindig UGYANAZT a fizetési oldalt adjuk vissza
@@ -26,67 +28,83 @@ class DepositCheckout
             && $quote->depositAmount() && ! $quote->deposit_paid_at;
     }
 
+    /** Fizetendő-e most online a lezárt projekt fennmaradó összege. */
+    public static function finalDue(QuoteRequest $quote): bool
+    {
+        return Stripe::enabled() && $quote->status === 'completed' && $quote->completed_at
+            && $quote->remainingAmount() > 0 && ! $quote->final_paid_at;
+    }
+
+    private static function amount(QuoteRequest $quote, string $kind): int
+    {
+        return $kind === 'final' ? $quote->remainingAmount() : (int) $quote->depositAmount();
+    }
+
     /**
      * @return string A Stripe által hosztolt fizetési oldal URL-je.
      * @throws DepositPaymentPending ha az előző fizetés már sikerült, csak a webhook még nem érkezett meg.
      */
-    public static function create(QuoteRequest $quote): string
+    public static function create(QuoteRequest $quote, string $kind = 'deposit'): string
     {
-        return Cache::lock('deposit-checkout:'.$quote->id, 20)->block(15, function () use ($quote) {
+        return Cache::lock($kind.'-checkout:'.$quote->id, 20)->block(15, function () use ($quote, $kind) {
             $quote->refresh();
-            if ($quote->deposit_paid_at) {
-                throw new DepositPaymentPending('Az előleg már be van fizetve.');
+            if ($quote->{$kind.'_paid_at'}) {
+                throw new DepositPaymentPending('Ez az összeg már be van fizetve.');
             }
-            if ($url = self::reusable($quote)) {
+            if ($url = self::reusable($quote, $kind)) {
                 return $url;
             }
-            return self::open($quote);
+            return self::open($quote, $kind);
         });
     }
 
     /** Lezárja a nyitott fizetési oldalt (pl. ha az előleget átutalással rendezték). Hibát nem dob. */
-    public static function expireOpen(QuoteRequest $quote): void
+    public static function expireOpen(QuoteRequest $quote, string $kind = 'deposit'): void
     {
-        self::expireRemote($quote);
-        self::forget($quote);
+        self::expireRemote($quote, $kind);
+        self::forget($quote, $kind);
     }
 
-    private static function expireRemote(QuoteRequest $quote): void
+    private static function expireRemote(QuoteRequest $quote, string $kind): void
     {
-        if (! $quote->deposit_checkout_session_id || ! Stripe::enabled()) {
+        $sessionId = $quote->{$kind.'_checkout_session_id'};
+        if (! $sessionId || ! Stripe::enabled()) {
             return;
         }
         try {
-            Stripe::post('checkout/sessions/'.rawurlencode($quote->deposit_checkout_session_id).'/expire');
+            Stripe::post('checkout/sessions/'.rawurlencode($sessionId).'/expire');
         } catch (Throwable $e) {
             // Már lejárt / kifizetett munkamenetnél a Stripe hibát ad – ez rendben van.
-            Log::info('Deposit checkout expire skipped', ['quote_id' => $quote->id, 'error' => $e->getMessage()]);
+            Log::info('Checkout expire skipped', ['quote_id' => $quote->id, 'kind' => $kind, 'error' => $e->getMessage()]);
         }
     }
 
     /** A tárolt munkamenet adatainak törlése (fizetés vagy lezárás után). */
-    public static function forget(QuoteRequest $quote): void
+    public static function forget(QuoteRequest $quote, string $kind = 'deposit'): void
     {
         $quote->forceFill([
-            'deposit_checkout_session_id' => null, 'deposit_checkout_url' => null, 'deposit_checkout_expires_at' => null,
+            $kind.'_checkout_session_id' => null, $kind.'_checkout_url' => null, $kind.'_checkout_expires_at' => null,
         ])->save();
     }
 
     /** A még nyitott, változatlan összegű munkamenet URL-je, ha van. */
-    private static function reusable(QuoteRequest $quote): ?string
+    private static function reusable(QuoteRequest $quote, string $kind): ?string
     {
-        if (! $quote->deposit_checkout_session_id || ! $quote->deposit_checkout_url) {
+        $sessionId = $quote->{$kind.'_checkout_session_id'};
+        $url = $quote->{$kind.'_checkout_url'};
+        $expires = $quote->{$kind.'_checkout_expires_at'};
+        if (! $sessionId || ! $url) {
             return null;
         }
-        if ($quote->deposit_checkout_expires_at && $quote->deposit_checkout_expires_at->lte(now()->addMinutes(5))) {
+        if ($expires && $expires->lte(now()->addMinutes(5))) {
             return null;
         }
         try {
-            $session = Stripe::get('checkout/sessions/'.rawurlencode($quote->deposit_checkout_session_id));
+            $session = Stripe::get('checkout/sessions/'.rawurlencode($sessionId));
         } catch (Throwable $e) {
             // A Stripe épp nem elérhető: a tárolt (még érvényes) oldal biztonságosabb, mint egy új nyitása.
-            Log::warning('Deposit checkout lookup failed, reusing stored URL', ['quote_id' => $quote->id, 'error' => $e->getMessage()]);
-            return $quote->deposit_checkout_url;
+            Log::warning('Checkout lookup failed, reusing stored URL', ['quote_id' => $quote->id, 'kind' => $kind, 'error' => $e->getMessage()]);
+            return $url;
         }
         $status = $session['status'] ?? null;
         if ($status === 'complete' || ($session['payment_status'] ?? null) === 'paid') {
@@ -95,22 +113,25 @@ class DepositCheckout
         if ($status !== 'open') {
             return null;
         }
-        if ((int) ($session['amount_total'] ?? 0) !== Stripe::huf((int) $quote->depositAmount())) {
-            // Az ajánlat összege közben módosult: a régi összegű oldal ne maradjon fizethető.
+        if ((int) ($session['amount_total'] ?? 0) !== Stripe::huf(self::amount($quote, $kind))) {
+            // Az összeg közben módosult: a régi összegű oldal ne maradjon fizethető.
             // (A munkamenet-azonosító megmarad: ebből készül az új Idempotency-Key.)
-            self::expireRemote($quote);
+            self::expireRemote($quote, $kind);
             return null;
         }
-        return $quote->deposit_checkout_url;
+        return $url;
     }
 
-    private static function open(QuoteRequest $quote): string
+    private static function open(QuoteRequest $quote, string $kind): string
     {
         $base = config('portfolio.frontend_url');
-        $amount = (int) $quote->depositAmount();
+        $amount = self::amount($quote, $kind);
+        $name = $kind === 'final'
+            ? 'Fennmaradó összeg – #'.$quote->id.' webfejlesztési projekt'
+            : 'Előleg – #'.$quote->id.' webfejlesztési projekt ('.$quote->deposit_percent.'%)';
         // Determinisztikus kulcs: ugyanabból az állapotból (előző munkamenet + összeg) indított kérések
         // ugyanazt a munkamenetet kapják a Stripe-tól, még ha a zár valamiért nem is védene.
-        $key = 'deposit-'.hash('sha256', implode('|', [$quote->id, $amount, $quote->deposit_checkout_session_id ?? 'first']));
+        $key = $kind.'-'.hash('sha256', implode('|', [$quote->id, $amount, $quote->{$kind.'_checkout_session_id'} ?? 'first']));
         $session = Stripe::post('checkout/sessions', [
             'mode' => 'payment',
             'success_url' => $base.'/fizetes/sikeres',
@@ -123,18 +144,18 @@ class DepositCheckout
                 'price_data' => [
                     'currency' => config('services.stripe.currency'),
                     'unit_amount' => Stripe::huf($amount),
-                    'product_data' => ['name' => 'Előleg – #'.$quote->id.' webfejlesztési projekt ('.$quote->deposit_percent.'%)'],
+                    'product_data' => ['name' => $name],
                 ],
             ]],
-            'metadata' => ['type' => 'deposit', 'quote_request_id' => $quote->id],
-            'payment_intent_data' => ['metadata' => ['type' => 'deposit', 'quote_request_id' => $quote->id]],
+            'metadata' => ['type' => $kind, 'quote_request_id' => $quote->id],
+            'payment_intent_data' => ['metadata' => ['type' => $kind, 'quote_request_id' => $quote->id]],
         ], $key);
 
         $quote->forceFill([
-            'deposit_checkout_session_id' => $session['id'] ?? null,
-            'deposit_checkout_url' => $session['url'],
+            $kind.'_checkout_session_id' => $session['id'] ?? null,
+            $kind.'_checkout_url' => $session['url'],
             // A Stripe alapból 24 óráig tartja nyitva; ha nem jön vissza a lejárat, óvatosan számolunk.
-            'deposit_checkout_expires_at' => isset($session['expires_at'])
+            $kind.'_checkout_expires_at' => isset($session['expires_at'])
                 ? Carbon::createFromTimestamp((int) $session['expires_at']) : now()->addHours(23),
         ])->save();
 

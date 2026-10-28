@@ -55,6 +55,25 @@ class ClientPaymentController extends Controller
         return response()->json(['url' => $url])->header('Cache-Control', 'no-store');
     }
 
+    /** A lezárt projekt fennmaradó összegének fizetése bankkártyával (egyszeri Checkout). */
+    public function finalCheckout(Request $request): JsonResponse
+    {
+        $quote = $this->quote($request);
+        $this->ensureStripe();
+        if (! \App\Support\DepositCheckout::finalDue($quote)) {
+            throw ValidationException::withMessages(['payment' => 'Ehhez a projekthez jelenleg nincs fizetendő fennmaradó összeg.']);
+        }
+        try {
+            $url = \App\Support\DepositCheckout::create($quote, 'final');
+        } catch (\App\Support\DepositPaymentPending) {
+            throw ValidationException::withMessages(['payment' => 'A fennmaradó összeg befizetése már megtörtént, a visszaigazolás pár percen belül megjelenik. Nem kell újra fizetned.']);
+        } catch (Throwable $e) {
+            Log::error('Stripe final checkout failed', ['quote_id' => $quote->id, 'error' => $e->getMessage()]);
+            throw ValidationException::withMessages(['payment' => 'A fizetési oldal most nem nyitható meg. Próbáld újra pár perc múlva.']);
+        }
+        return response()->json(['url' => $url])->header('Cache-Control', 'no-store');
+    }
+
     /** Havi karbantartási előfizetés indítása (Checkout, subscription mód). */
     public function maintenanceCheckout(Request $request): JsonResponse
     {

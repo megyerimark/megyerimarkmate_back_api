@@ -13,6 +13,10 @@ return [
     // Kötelező előleg: ajánlat csak legalább ennyi %-os előleggel küldhető ki (0 = nem kötelező).
     'min_deposit_percent' => min(100, max(0, (int) env('PORTFOLIO_MIN_DEPOSIT_PERCENT', 30))),
 
+    // Átadandó kód / csomag (ZIP) legnagyobb mérete MB-ban. A szerver upload_max_filesize és post_max_size
+    // PHP-beállítása is legyen legalább ekkora (Rackhost: cPanel → PHP-beállítások).
+    'deliverable_max_mb' => max(1, (int) env('PORTFOLIO_DELIVERABLE_MAX_MB', 100)),
+
     // Az Általános Szerződési Feltételek aktuális verziója – az elfogadáskor rögzítjük. ÁSZF-módosításkor növeld!
     'terms_version' => env('PORTFOLIO_TERMS_VERSION', '2026-11'),
 

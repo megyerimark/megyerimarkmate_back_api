@@ -44,6 +44,11 @@ class ClientProjectController extends Controller
             'deposit_amount_huf' => $quote->quoted_at ? $quote->depositAmount() : null,
             'deposit_paid_at' => $quote->deposit_paid_at,
             'terms_version' => $quote->terms_version,
+            'completed_at' => $quote->completed_at,
+            'final_amount_huf' => $quote->completed_at ? $quote->remainingAmount() : null,
+            'final_paid_at' => $quote->final_paid_at,
+            'handed_over_at' => $quote->handed_over_at,
+            'handover_note' => $quote->handed_over_at ? $quote->handover_note : null,
             'online_payment' => Stripe::enabled(),
             'maintenance' => ($m = $quote->maintenanceAgreement) && ($m->billing_enabled || $m->stripe_subscription_id) ? [
                 'plan_name' => $m->plan_name,

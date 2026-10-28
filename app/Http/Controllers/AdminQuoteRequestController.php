@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\ProjectCompleted;
+use App\Mail\ProjectHandedOver;
 use App\Mail\ProposalReady;
 use App\Mail\ProjectAccessRenewed;
 use App\Models\QuoteRequest;
@@ -71,9 +73,11 @@ class AdminQuoteRequestController extends Controller
                 'reviewing' => ['new', 'rejected'],
                 'rejected' => ['reviewing'],
                 'quoted' => ['rejected'],
-                'accepted' => ['completed'],
                 default => [],
             };
+            if ($data['status'] === 'completed') {
+                throw ValidationException::withMessages(['status' => 'A projekt lezárásához a „Projekt kész” gombot használd – az küldi el a végleges e-mailt az ügyfélnek.']);
+            }
             if (! in_array($data['status'], $allowed, true)) {
                 throw ValidationException::withMessages(['status' => 'Ez az állapotváltás itt nem engedélyezett. Ajánlatküldéshez és ügyfél-elfogadáshoz a megfelelő folyamatot használd.']);
             }
@@ -83,7 +87,7 @@ class AdminQuoteRequestController extends Controller
             ($key === 'proposal_valid_until' ? $quoteRequest->{$key}?->format('Y-m-d') : $quoteRequest->{$key}) != $data[$key])) {
             throw ValidationException::withMessages(['proposal' => 'Az elküldött ajánlat tartalma nem módosítható csendben.']);
         }
-        if ($quoteRequest->proposal_accepted_at && isset($data['status']) && $data['status'] !== $quoteRequest->status && ! ($quoteRequest->status === 'accepted' && $data['status'] === 'completed')) {
+        if ($quoteRequest->proposal_accepted_at && isset($data['status']) && $data['status'] !== $quoteRequest->status) {
             throw ValidationException::withMessages(['status' => 'Az elfogadott ajánlat állapotát a megerősítés megőrzése érdekében nem lehet felülírni.']);
         }
         foreach (['status', 'admin_notes', 'follow_up_at', ...$proposalFields] as $key) {
@@ -114,25 +118,7 @@ class AdminQuoteRequestController extends Controller
         if ($minDeposit > 0 && (int) $quoteRequest->deposit_percent < $minDeposit) {
             throw ValidationException::withMessages(['deposit_percent' => "Az ajánlathoz legalább {$minDeposit}% előleget kell megadni (a munka a befizetése után indul)."]);
         }
-        // Existing client links stay valid. Older enquiries get a token only when necessary.
-        if ($quoteRequest->portal_token_encrypted) {
-            $token = Crypt::decryptString($quoteRequest->portal_token_encrypted);
-            // Renew older, still-valid links when sending the first proposal.
-            if (! $quoteRequest->portal_token_expires_at || $quoteRequest->portal_token_expires_at->isPast()) {
-                $token = bin2hex(random_bytes(32));
-                $quoteRequest->portal_token_hash = hash('sha256', $token);
-                $quoteRequest->portal_token_encrypted = Crypt::encryptString($token);
-                $quoteRequest->portal_token_expires_at = now()->addDays(config('portfolio.client_access_days'));
-                $quoteRequest->save();
-            }
-        } else {
-            $token = bin2hex(random_bytes(32));
-            $quoteRequest->portal_token_hash = hash('sha256', $token);
-            $quoteRequest->portal_token_encrypted = Crypt::encryptString($token);
-            $quoteRequest->portal_token_expires_at = now()->addDays(config('portfolio.client_access_days'));
-            $quoteRequest->save();
-        }
-        $url = config('portfolio.frontend_url').'/ugyfel/projekt#'.$token;
+        $url = $this->portalUrl($quoteRequest);
         try {
             Mail::to($quoteRequest->email)->send(new ProposalReady($quoteRequest, $url));
         } catch (\Throwable $exception) {
@@ -145,6 +131,117 @@ class AdminQuoteRequestController extends Controller
         $quoteRequest->markFirstResponse();
         AdminAudit::record($request, 'proposal_sent', 'quote_request', $quoteRequest->id);
         return response()->json(['message' => 'Az ajánlat e-mailben elküldve.', 'data' => $quoteRequest->fresh()]);
+    }
+
+    /**
+     * Az ügyfél privát projektlinkje. A meglévő, érvényes link marad; lejárt vagy hiányzó link helyett újat készít.
+     * Kizárólag e-mail-küldés előtt hívd: a link csak az ügyfélnek küldött levélben jelenik meg.
+     */
+    private function portalUrl(QuoteRequest $quoteRequest): string
+    {
+        $token = $quoteRequest->portal_token_encrypted ? Crypt::decryptString($quoteRequest->portal_token_encrypted) : null;
+        if (! $token || ! $quoteRequest->portal_token_expires_at || $quoteRequest->portal_token_expires_at->isPast()) {
+            $token = bin2hex(random_bytes(32));
+            $quoteRequest->portal_token_hash = hash('sha256', $token);
+            $quoteRequest->portal_token_encrypted = Crypt::encryptString($token);
+            $quoteRequest->portal_token_expires_at = now()->addDays(config('portfolio.client_access_days'));
+            $quoteRequest->save();
+        }
+        return config('portfolio.frontend_url').'/ugyfel/projekt#'.$token;
+    }
+
+    /**
+     * „Projekt kész”: végleges e-mail az ügyfélnek a fennmaradó összeggel és a fizetési lehetőséggel.
+     * A státusz csak sikeres kézbesítés után vált „completed”-re; a fennmaradó összeget ekkor rögzítjük.
+     */
+    public function complete(Request $request, QuoteRequest $quoteRequest): JsonResponse
+    {
+        if (! \App\Support\Mailer::canSend()) {
+            return response()->json(['message' => 'Valós e-mail-küldés nincs beállítva, így a végleges e-mail nem küldhető ki. Ellenőrizd a MAIL_MAILER és PORTFOLIO_MAIL_ENABLED beállításokat.'], 503);
+        }
+        // A korábban (végleges e-mail nélkül) „kész”-re állított projektek is lezárhatók így.
+        $legacyCompleted = $quoteRequest->status === 'completed' && ! $quoteRequest->completed_at;
+        if (! $quoteRequest->proposal_accepted_at || ($quoteRequest->status !== 'accepted' && ! $legacyCompleted)) {
+            throw ValidationException::withMessages(['status' => 'Csak elfogadott, folyamatban lévő projekt jelölhető késznek.']);
+        }
+        if ($quoteRequest->depositAmount() && ! $quoteRequest->deposit_paid_at) {
+            throw ValidationException::withMessages(['deposit' => 'Az előleg még nem érkezett meg. Előbb rendezd (vagy jelöld beérkezettnek), utána zárható le a projekt.']);
+        }
+        $remaining = $quoteRequest->remainingAmount();
+        $url = $this->portalUrl($quoteRequest);
+        // A levél a rögzítendő összeget mutassa (még mentés nélkül).
+        $quoteRequest->final_amount_huf = $remaining;
+        try {
+            Mail::to($quoteRequest->email)->send(new ProjectCompleted($quoteRequest, $url));
+        } catch (\Throwable $exception) {
+            Log::error('Project completion mail failed', ['quote_id' => $quoteRequest->id, 'exception_type' => $exception::class]);
+            return response()->json(['message' => 'A végleges e-mail kézbesítése sikertelen volt. A projekt állapota változatlan.'], 503);
+        }
+        $quoteRequest->forceFill(['status' => 'completed', 'completed_at' => now(), 'final_amount_huf' => $remaining])->save();
+        AdminAudit::record($request, 'project_completed', 'quote_request', $quoteRequest->id);
+        $message = $remaining > 0
+            ? 'A projekt lezárva, a végleges e-mail elküldve. A kód a fennmaradó összeg beérkezése után adható át.'
+            : 'A projekt lezárva, a végleges e-mail elküldve. Nincs fennmaradó összeg, a kód átadható.';
+        return response()->json(['message' => $message, 'data' => $quoteRequest->fresh()]);
+    }
+
+    /** A fennmaradó összeg kézi jóváírása (banki átutalás) – bevételként is rögzül a Pénzügyekben. */
+    public function markFinalPaid(Request $request, QuoteRequest $quoteRequest): JsonResponse
+    {
+        $data = $request->validate(['paid_on' => ['sometimes', 'date_format:Y-m-d', 'before_or_equal:today']]);
+        $amount = $quoteRequest->remainingAmount();
+        if ($quoteRequest->status !== 'completed' || ! $quoteRequest->completed_at || $amount <= 0) {
+            throw ValidationException::withMessages(['final' => 'Ehhez a projekthez nincs fizetendő fennmaradó összeg.']);
+        }
+        if ($quoteRequest->final_paid_at) {
+            throw ValidationException::withMessages(['final' => 'A fennmaradó összeg már be van jelölve.']);
+        }
+        $date = $data['paid_on'] ?? now()->toDateString();
+        $quoteRequest->forceFill(['final_paid_at' => $date.' '.now()->format('H:i:s'), 'final_paid_via' => 'transfer'])->save();
+        // Átutalással rendezve: a nyitott kártyás fizetési oldal ne maradjon fizethető (dupla fizetés ellen).
+        \App\Support\DepositCheckout::expireOpen($quoteRequest, 'final');
+        \App\Models\FinanceEntry::create([
+            'type' => 'income', 'occurred_on' => $date, 'amount_huf' => $amount,
+            'vat_rate' => \App\Models\AdminSetting::finance()['vat_registered'] ? 27 : 0,
+            'category' => 'Végszámla', 'description' => 'Fennmaradó összeg (átutalás) – #'.$quoteRequest->id.' '.$quoteRequest->customer_name,
+            'quote_request_id' => $quoteRequest->id, 'source' => 'manual',
+        ]);
+        AdminAudit::record($request, 'final_marked_paid', 'quote_request', $quoteRequest->id);
+        return response()->json(['message' => 'Fennmaradó összeg jóváírva – a kód átadható.', 'data' => $quoteRequest->fresh()]);
+    }
+
+    /**
+     * Kód / átadási csomag átadása. Szerveroldalon zárolva, amíg a fennmaradó összeg nincs kifizetve:
+     * az átadandó fájlokat az ügyfél csak ezután töltheti le, és ekkor kap róla e-mailt.
+     */
+    public function handover(Request $request, QuoteRequest $quoteRequest): JsonResponse
+    {
+        $data = $request->validate(['note' => ['sometimes', 'nullable', 'string', 'max:3000']]);
+        if (! $quoteRequest->handoverUnlocked()) {
+            throw ValidationException::withMessages(['handover' => $quoteRequest->status === 'completed'
+                ? 'A kód csak a fennmaradó összeg ('.number_format($quoteRequest->remainingAmount(), 0, ',', ' ').' Ft) kifizetése után adható át.'
+                : 'A kód átadása előtt jelöld késznek a projektet.']);
+        }
+        if ($quoteRequest->handed_over_at) {
+            throw ValidationException::withMessages(['handover' => 'A kódot már átadtad ('.$quoteRequest->handed_over_at->timezone('Europe/Budapest')->format('Y. m. d.').').']);
+        }
+        if (! $quoteRequest->documents()->where('is_deliverable', true)->exists() && blank($data['note'] ?? null)) {
+            throw ValidationException::withMessages(['handover' => 'Tölts fel legalább egy átadandó fájlt, vagy írd le az átadás módját (pl. GitHub-repó, tárhely-hozzáférés).']);
+        }
+        if (! \App\Support\Mailer::canSend()) {
+            return response()->json(['message' => 'Valós e-mail-küldés szükséges az átadás értesítőjéhez.'], 503);
+        }
+        $url = $this->portalUrl($quoteRequest);
+        $quoteRequest->handover_note = filled($data['note'] ?? null) ? trim($data['note']) : null;
+        try {
+            Mail::to($quoteRequest->email)->send(new ProjectHandedOver($quoteRequest, $url));
+        } catch (\Throwable $exception) {
+            Log::error('Project handover mail failed', ['quote_id' => $quoteRequest->id, 'exception_type' => $exception::class]);
+            return response()->json(['message' => 'Az átadási e-mail kézbesítése sikertelen volt. Az átadás nem történt meg.'], 503);
+        }
+        $quoteRequest->forceFill(['handed_over_at' => now(), 'handover_note' => $quoteRequest->handover_note])->save();
+        AdminAudit::record($request, 'project_handed_over', 'quote_request', $quoteRequest->id);
+        return response()->json(['message' => 'A kód átadva, az ügyfél e-mailt kapott és letöltheti a fájlokat.', 'data' => $quoteRequest->fresh()]);
     }
 
     public function rotateClientAccess(Request $request, QuoteRequest $quoteRequest): JsonResponse

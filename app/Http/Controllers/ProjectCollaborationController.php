@@ -25,9 +25,13 @@ class ProjectCollaborationController extends Controller
 
     private function records(QuoteRequest $quote): array
     {
+        $locked = ! $quote->handed_over_at;
         return [
             'messages' => $quote->messages()->orderByDesc('id')->limit(150)->get(['id', 'author', 'body', 'created_at'])->reverse()->values(),
-            'documents' => $quote->documents()->orderByDesc('id')->get(['id', 'title', 'filename', 'mime_type', 'size_bytes', 'created_at']),
+            // Az átadandó kód / csomag a kódátadásig zárolt: az ügyfél látja, hogy készen áll, de nem töltheti le.
+            'documents' => $quote->documents()->orderByDesc('id')
+                ->get(['id', 'title', 'filename', 'mime_type', 'size_bytes', 'is_deliverable', 'created_at'])
+                ->map(fn (ProjectDocument $d) => $d->setAttribute('locked', $d->is_deliverable && $locked)),
         ];
     }
 
@@ -73,6 +77,8 @@ class ProjectCollaborationController extends Controller
     {
         $quote = $this->clientQuote($request);
         abort_unless($document->quote_request_id === $quote->id, 404);
+        // Kódátadás előtt az átadási csomag nem tölthető le (a fennmaradó összeg kifizetése a feltétel).
+        abort_if($document->is_deliverable && ! $quote->handed_over_at, 403, 'Az átadási csomag a kódátadás után tölthető le.');
         abort_unless(Storage::disk('local')->exists($document->storage_path), 404);
         return Storage::disk('local')->download($document->storage_path, $document->filename, [
             'Cache-Control' => 'no-store, private', 'X-Content-Type-Options' => 'nosniff',
@@ -101,20 +107,25 @@ class ProjectCollaborationController extends Controller
 
     public function adminUpload(Request $request, QuoteRequest $quoteRequest): JsonResponse
     {
+        $deliverable = $request->boolean('deliverable');
+        // Átadandó kód / csomag: ZIP (vagy PDF dokumentáció) nagyobb méretkorláttal; egyéb dokumentum: PDF vagy kép, max. 10 MB.
         $data = $request->validate([
             'title' => ['required', 'string', 'max:160'],
-            'file' => ['required', 'file', 'mimes:pdf,png,jpg,jpeg,webp', 'max:10240'],
+            'deliverable' => ['sometimes', 'boolean'],
+            'file' => $deliverable
+                ? ['required', 'file', 'mimes:zip,pdf', 'max:'.(config('portfolio.deliverable_max_mb') * 1024)]
+                : ['required', 'file', 'mimes:pdf,png,jpg,jpeg,webp', 'max:10240'],
         ]);
         if ($quoteRequest->documents()->count() >= 30) {
             throw ValidationException::withMessages(['file' => 'Legfeljebb 30 dokumentum tölthető fel projektenként.']);
         }
         $file = $data['file'];
-        $path = $file->store('client-projects/'.$quoteRequest->id, 'local');
+        $path = $file->store('client-projects/'.$quoteRequest->id.($deliverable ? '/deliverables' : ''), 'local');
         try {
             $document = $quoteRequest->documents()->create([
                 'title' => trim($data['title']), 'filename' => basename($file->getClientOriginalName()),
                 'storage_path' => $path, 'mime_type' => $file->getMimeType() ?: 'application/octet-stream',
-                'size_bytes' => $file->getSize(),
+                'size_bytes' => $file->getSize(), 'is_deliverable' => $deliverable,
             ]);
         } catch (\Throwable $exception) {
             Storage::disk('local')->delete($path);

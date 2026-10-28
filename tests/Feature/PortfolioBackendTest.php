@@ -179,9 +179,13 @@ class PortfolioBackendTest extends TestCase
         $this->postJson('/api/client/project/accept', ['token' => $token, 'accept_terms' => true])
             ->assertOk()->assertJsonPath('data.status', 'accepted');
         $this->assertDatabaseHas('quote_requests', ['id' => $quote->id, 'status' => 'accepted']);
+        // A lezárás csak a „Projekt kész” folyamattal lehetséges (az küldi a végleges e-mailt).
         $this->actingAs($admin)->patchJson('/api/admin/quote-requests/'.$quote->id, [
             'status' => 'completed',
-        ])->assertOk();
+        ])->assertUnprocessable();
+        $this->actingAs($admin)->postJson('/api/admin/quote-requests/'.$quote->id.'/deposit-paid')->assertOk();
+        $this->actingAs($admin)->postJson('/api/admin/quote-requests/'.$quote->id.'/complete')
+            ->assertOk()->assertJsonPath('data.status', 'completed');
     }
 
     public function test_fake_mail_transport_does_not_mark_a_proposal_sent(): void
