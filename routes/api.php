@@ -42,9 +42,9 @@ Route::withoutMiddleware([EnsureFrontendRequestsAreStateful::class])->group(func
 });
 
 // Public enquiry submission: no personal information in the response besides the reference ID.
-Route::post('/quote-requests', [QuoteRequestController::class, 'store'])->middleware('throttle:5,1,post--quote-requests');
+Route::post('/quote-requests', [QuoteRequestController::class, 'store'])->middleware(['throttle:5,1,post--quote-requests', 'turnstile']);
 // Hírlevél: kettős megerősítés; a kulcsok a kérés törzsében utaznak.
-Route::post('/newsletter/subscribe', [\App\Http\Controllers\NewsletterController::class, 'subscribe'])->middleware('throttle:5,1,post--newsletter-subscribe');
+Route::post('/newsletter/subscribe', [\App\Http\Controllers\NewsletterController::class, 'subscribe'])->middleware(['throttle:5,1,post--newsletter-subscribe', 'turnstile']);
 Route::post('/newsletter/confirm', [\App\Http\Controllers\NewsletterController::class, 'confirm'])->middleware('throttle:20,1,post--newsletter-confirm');
 Route::post('/newsletter/unsubscribe', [\App\Http\Controllers\NewsletterController::class, 'unsubscribe'])->middleware('throttle:20,1,post--newsletter-unsubscribe');
 // Private capability token lives in the request body (never in a server-logged URL).
@@ -60,7 +60,7 @@ Route::post('/client/project/maintenance/portal', [ClientPaymentController::clas
 Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle'])
     ->withoutMiddleware([EnsureFrontendRequestsAreStateful::class])->middleware('throttle:300,1,post--stripe-webhook');
 Route::get('/consultations/available', [ConsultationController::class, 'available'])->middleware('throttle:40,1,get--consultations-available');
-Route::post('/consultations/book', [ConsultationController::class, 'book'])->middleware('throttle:5,1,post--consultations-book');
+Route::post('/consultations/book', [ConsultationController::class, 'book'])->middleware(['throttle:5,1,post--consultations-book', 'turnstile']);
 
 Route::middleware(['auth:sanctum', 'can:access-admin', 'admin.2fa'])->prefix('admin')->group(function () {
     Route::get('/me', fn (Request $request) => response()->json([

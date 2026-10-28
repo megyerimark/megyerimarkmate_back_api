@@ -35,7 +35,11 @@ class PublicContentController extends Controller
     {
         $settings = PublicCache::remember('settings', fn () => SiteSetting::allPublic());
         // Az akció állapota (lejárat!) mindig frissen számolódik, a gyorsítótárazott beállításokból.
-        return $this->cached(['data' => $settings + ['promo' => Promotion::current($settings)]], 60);
+        // A Turnstile nyilvános (site) kulcsa: a frontend ezzel jeleníti meg a robotszűrő widgetet.
+        return $this->cached(['data' => $settings + [
+            'promo' => Promotion::current($settings),
+            'turnstile_site_key' => config('services.turnstile.secret_key') ? config('services.turnstile.site_key') : null,
+        ]], 60);
     }
 
     /** Csak az admin által publikált vélemények; a projekthivatkozás csak valódi, publikus referenciára mutat. */

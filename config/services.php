@@ -45,4 +45,13 @@ return [
         'api_base' => env('STRIPE_API_BASE'), // csak helyi teszteléshez
     ],
 
+    // Bot-védelem (Cloudflare Turnstile). dash.cloudflare.com → Turnstile → Add widget.
+    // Üres titkos kulccsal a védelem ki van kapcsolva (helyi fejlesztés, tesztek).
+    'turnstile' => [
+        'site_key' => env('TURNSTILE_SITE_KEY'),
+        'secret_key' => env('TURNSTILE_SECRET_KEY'),
+        // Vesszővel elválasztott domainek, ahonnan a widget kulcsa elfogadható (üres = bármelyik).
+        'hostnames' => env('TURNSTILE_HOSTNAMES'),
+    ],
+
 ];

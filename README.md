@@ -165,7 +165,16 @@ Ez futtatja naponta:
 
 **Oldaltérkép.** A `GET /api/sitemap.xml` a statikus oldalak mellett minden publikált referenciát (`/munkak/{slug}`) tartalmaz; a frontend `robots.txt` hivatkozik rá.
 
-**DDoS / árasztás elleni védelem.** Az alkalmazásszintű korlátok (globális 300 kérés/perc/IP + végpontonkénti korlátok) a kisebb támadásokat és a scrapereket fogják meg. Valódi DDoS ellen a szerver elé kell egy szolgáltatás – ajánlott az ingyenes **Cloudflare**: domain DNS-ét a Cloudflare-re irányítod (narancs felhő), SSL mód „Full (strict)”, „Bot Fight Mode” bekapcsolva, támadáskor „Under Attack Mode”. Ezután állítsd be: `TRUSTED_PROXIES=*` **és** a tárhelyen engedd a 80/443-as portot csak a Cloudflare IP-címeiről (különben a valódi IP hamisítható). Így a korlátok a látogató valódi IP-címére vonatkoznak.
+**DDoS / árasztás elleni védelem.** Az alkalmazásszintű korlátok (globális 300 kérés/perc/IP + végpontonkénti korlátok) a kisebb támadásokat és a scrapereket fogják meg. Valódi DDoS ellen a szerver elé kell egy szolgáltatás – ajánlott az ingyenes **Cloudflare**: domain DNS-ét a Cloudflare-re irányítod (narancs felhő), SSL mód „Full (strict)”, „Bot Fight Mode” bekapcsolva, támadáskor „Under Attack Mode”. Ezután állítsd be: `TRUSTED_PROXIES=cloudflare` – így a látogató IP-címét (`X-Forwarded-For`) csak a Cloudflare saját címeiről (`bootstrap/cloudflare-ips.php`) fogadjuk el, és a korlátok a valódi IP-re vonatkoznak. **Ne használd a `*` értéket**, ha a szerver Cloudflare nélkül is elérhető: akkor bárki hamis IP-címmel kerülhetné ki a korlátokat. Ha a tárhely engedi, a 80/443-as portot is szűkítsd a Cloudflare címeire.
+
+**Bot-védelem (Cloudflare Turnstile).** Az ajánlatkérés (űrlap és kvíz), az időpontfoglalás, a hírlevél-feliratkozás, az admin belépés és az elfelejtett jelszó űrlap a honeypot és a kéréskorlát mellett Turnstile-ellenőrzést is kap (`App\Http\Middleware\VerifyTurnstile`, alias: `turnstile`). Beállítás:
+1. dash.cloudflare.com → **Turnstile** → *Add widget* → domain: `megyerimarkmate.hu` (és `www.`), mód: **Managed**.
+2. A `.env`-be: `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`, `TURNSTILE_HOSTNAMES=megyerimarkmate.hu,www.megyerimarkmate.hu`, majd `php artisan config:cache`.
+3. A frontend a nyilvános kulcsot a `/api/site-settings` válaszból kapja – ott nincs külön teendő.
+
+Üres titkos kulccsal a védelem ki van kapcsolva (helyi fejlesztés, tesztek). Bekapcsolva a szerver minden érintett kérésnél ellenőrzi a kulcsot a Cloudflare-nél; ha a Cloudflare nem elérhető, a kérést elutasítja (zárt hibakezelés). Más domainen kiállított kulcs nem fogadható el. Helyi kipróbáláshoz a Cloudflare tesztkulcsai: site `1x00000000000000000000AA`, secret `1x0000000000000000000000000000000AA`.
+
+**Időpontfoglalás korlátja.** Egy e-mail-cím legfeljebb 2 jövőbeli konzultációs időpontot foglalhat le, így egy bot nem töltheti meg a naptárat.
 
 **Figyelés.** Javasolt egy ingyenes uptime-figyelő (pl. UptimeRobot) a `/up` címre, valamint hibafigyelő szolgáltatás (pl. Sentry) bekötése.
 
@@ -177,7 +186,8 @@ Kiinduló beállítások: **[.env.production.example](.env.production.example)**
 - HTTPS, erős adminjelszó, `APP_DEBUG=false`, korrekt domain/cookie/CORS beállítások.
 - Saját domainről érkező SMTP és e-mail kézbesítési próba.
 - Közzétett adatkezelési tájékoztató, GDPR szerinti adatmegőrzési / törlési folyamat.
-- CAPTCHA vagy további botvédelem; a honeypot és rate limit önmagukban nem állítják meg az összes spamet.
+- Cloudflare Turnstile kulcsok beállítva (`TURNSTILE_*`), Cloudflare mögött `TRUSTED_PROXIES=cloudflare`.
+- SPF, DKIM és DMARC rekord a levelező domainhez (különben a visszaigazolók és a belépési kódok spambe kerülnek).
 - Valós képeket és ügyfélreferenciákat csak jogos felhasználással publikálj.
 - Fájlok/tárhely feltöltési jogosultságok, cron-sor beállítva, első mentés és restore próba.
 - Angular admin és ajánlatkérő integrációteszt.

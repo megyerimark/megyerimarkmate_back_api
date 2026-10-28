@@ -14,6 +14,8 @@ use Illuminate\Validation\ValidationException;
 
 class ConsultationController extends Controller
 {
+    private const MAX_ACTIVE_BOOKINGS_PER_EMAIL = 2;
+
     public function available(): JsonResponse
     {
         $slots = ConsultationSlot::query()->where('starts_at', '>=', now()->addHours(2))
@@ -38,6 +40,12 @@ class ConsultationController extends Controller
             $slot = ConsultationSlot::query()->lockForUpdate()->findOrFail($data['consultation_slot_id']);
             if ($slot->starts_at->lessThan(now()->addHours(2)) || $slot->booking()->exists()) {
                 throw ValidationException::withMessages(['consultation_slot_id' => 'Ez az időpont már nem foglalható. Válassz egy másikat.']);
+            }
+            // Egy e-mail-cím legfeljebb két jövőbeli időpontot tarthat le (a naptár lefoglalása ellen).
+            $active = ConsultationBooking::query()->whereRaw('LOWER(email) = ?', [mb_strtolower($data['email'])])
+                ->whereHas('slot', fn ($slot) => $slot->where('starts_at', '>', now()))->count();
+            if ($active >= self::MAX_ACTIVE_BOOKINGS_PER_EMAIL) {
+                throw ValidationException::withMessages(['email' => 'Ezzel az e-mail-címmel már van lefoglalt időpontod. Ha módosítanád, írj nekem e-mailt.']);
             }
             return $slot->booking()->create([
                 'customer_name' => $data['customer_name'], 'email' => $data['email'],
