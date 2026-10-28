@@ -33,5 +33,20 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- A tesztek ne a helyi/éles .env-ből vegyék a projekt beállításait (2FA, mentéskulcs, kulcsok, e-mail). -->
+        <!-- Az egyes tesztek, amelyeknek kell, maguk kapcsolják be ezeket (config()->set). -->
+        <env name="PORTFOLIO_REQUIRE_ADMIN_2FA" value="false"/>
+        <env name="PORTFOLIO_MAIL_ENABLED" value="false"/>
+        <env name="PORTFOLIO_ADMIN_EMAIL" value=""/>
+        <env name="PORTFOLIO_MIN_DEPOSIT_PERCENT" value="30"/>
+        <env name="PORTFOLIO_CLIENT_ACCESS_DAYS" value="90"/>
+        <env name="PORTFOLIO_RETENTION_MONTHS" value="24"/>
+        <env name="PORTFOLIO_API_RATE_PER_MINUTE" value="300"/>
+        <env name="PORTFOLIO_BACKUP_KEY" value=""/>
+        <env name="PORTFOLIO_BACKUP_DISK" value=""/>
+        <env name="STRIPE_SECRET" value=""/>
+        <env name="STRIPE_WEBHOOK_SECRET" value=""/>
+        <env name="TURNSTILE_SITE_KEY" value=""/>
+        <env name="TURNSTILE_SECRET_KEY" value=""/>
     </php>
 </phpunit>
