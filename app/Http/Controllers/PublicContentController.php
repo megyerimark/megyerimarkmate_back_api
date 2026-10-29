@@ -70,20 +70,30 @@ class PublicContentController extends Controller
     /**
      * Dinamikus oldaltérkép: a statikus oldalak mellett minden publikált referencia
      * (munkak/{slug}) automatikusan bekerül, így a Google új esettanulmányokat is megtalál.
+     * Minden oldal magyarul és angolul (?lang=en) is szerepel, egymásra hivatkozó hreflang-párokkal – így a Google a magyar és a külföldi keresésekben is a megfelelő nyelvű változatot mutatja.
      */
     public function sitemap(): Response
     {
         $base = config('portfolio.frontend_url');
         $pages = ['/', '/tervezo', '/ajanlatkeres', '/projekt-kviz', '/konzultacio', '/adatkezeles', '/impresszum', '/aszf'];
-        $urls = collect($pages)->map(fn ($path) => ['loc' => $base.($path === '/' ? '/' : $path), 'lastmod' => null]);
+        $urls = collect($pages)->map(fn ($path) => ['loc' => $base.$path, 'lastmod' => null]);
         PortfolioProject::where('is_published', true)->where('is_demo', false)
             ->orderBy('sort_order')->get(['slug', 'updated_at'])
             ->each(fn ($p) => $urls->push(['loc' => $base.'/munkak/'.rawurlencode($p->slug), 'lastmod' => $p->updated_at?->toDateString()]));
 
-        $xml = '<?xml version="1.0" encoding="UTF-8"?>'."\n".'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'."\n";
+        $e = fn (string $url) => htmlspecialchars($url, ENT_XML1);
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>'."\n"
+            .'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">'."\n";
         foreach ($urls as $url) {
-            $xml .= '  <url><loc>'.htmlspecialchars($url['loc'], ENT_XML1).'</loc>'
-                .($url['lastmod'] ? '<lastmod>'.$url['lastmod'].'</lastmod>' : '').'</url>'."\n";
+            $variants = ['hu' => $url['loc'], 'en' => $url['loc'].'?lang=en'];
+            $alternates = '';
+            foreach ($variants + ['x-default' => $url['loc']] as $lang => $href) {
+                $alternates .= '<xhtml:link rel="alternate" hreflang="'.$lang.'" href="'.$e($href).'"/>';
+            }
+            foreach ($variants as $loc) {
+                $xml .= '  <url><loc>'.$e($loc).'</loc>'
+                    .($url['lastmod'] ? '<lastmod>'.$url['lastmod'].'</lastmod>' : '').$alternates.'</url>'."\n";
+            }
         }
         $xml .= '</urlset>'."\n";
 

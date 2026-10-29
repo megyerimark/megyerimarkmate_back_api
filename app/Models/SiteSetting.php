@@ -12,12 +12,16 @@ class SiteSetting extends Model
     protected $keyType = 'string';
     protected $fillable = ['key', 'value'];
 
+    public const META_TITLE = 'Weboldal készítés és egyedi webfejlesztés | Megyeri Márk Máté';
+    public const META_DESCRIPTION = 'Egyedi weboldal, webshop és webes rendszer készítése vállalkozásoknak – online, itthon és külföldön. Prémium design, gyors betöltés. Kérj ajánlatot!';
+
     public const DEFAULTS = [
         'site_title' => 'Megyeri Márk | Webfejlesztés',
         'hero_headline' => 'Ne csak jelen legyél online. Emelkedj ki.',
         'hero_description' => 'Egyedi weboldalakat és prémium digitális megoldásokat készítek vállalkozásoknak – hogy a megjelenésed bizalmat építsen, és támogassa az ügyfélszerzést.',
-        'meta_title' => 'Megyeri Márk | Prémium webfejlesztés vállalkozásoknak',
-        'meta_description' => 'Prémium, egyedi weboldalak vállalkozásoknak. Megyeri Márk webfejlesztés: modern megjelenés, reszponzív kivitelezés és ügyfélszerzést támogató megoldások.',
+        // A főoldal címe és leírása a Google-találatokban: azok a kifejezések legyenek benne, amelyekre az ügyfelek keresnek.
+        'meta_title' => self::META_TITLE,
+        'meta_description' => self::META_DESCRIPTION,
         'og_image_url' => '',
         'contact_email' => '',
         'contact_phone' => '',
