@@ -37,8 +37,12 @@ class AdminSiteSettingController extends Controller
             'promo_text' => ['sometimes', 'nullable', 'string', 'max:240'],
             'promo_text_en' => ['sometimes', 'nullable', 'string', 'max:240'],
             'promo_ends_at' => ['sometimes', 'nullable', 'date_format:Y-m-d'],
+            'site_palette' => ['sometimes', 'required', \Illuminate\Validation\Rule::in(SiteSetting::PALETTES)],
+            ...array_fill_keys(SiteSetting::SEASONAL_FLAGS, ['sometimes', 'boolean']),
         ]);
-        if (array_key_exists('promo_enabled', $data)) $data['promo_enabled'] = $data['promo_enabled'] ? '1' : '0';
+        foreach (['promo_enabled', ...SiteSetting::SEASONAL_FLAGS] as $flag) {
+            if (array_key_exists($flag, $data)) $data[$flag] = $data[$flag] ? '1' : '0';
+        }
         if (($data['promo_enabled'] ?? null) === '1' && (int) ($data['promo_percent'] ?? SiteSetting::allPublic()['promo_percent']) < 1) {
             throw \Illuminate\Validation\ValidationException::withMessages(['promo_percent' => 'Az akció bekapcsolásához adj meg legalább 1% kedvezményt.']);
         }
