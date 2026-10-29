@@ -137,6 +137,10 @@ class SecurityHardeningTest extends TestCase
         $this->assertStringContainsString('/munkak/valodi', $xml);
         $this->assertStringContainsString('/impresszum', $xml);
         $this->assertStringNotContainsString('rejtett', $xml);
+        // angol változat hreflang-párral
+        $this->assertStringContainsString('<loc>'.config('portfolio.frontend_url').'/munkak/valodi?lang=en</loc>', $xml);
+        $this->assertStringContainsString('hreflang="en" href="'.config('portfolio.frontend_url').'/ajanlatkeres?lang=en"', $xml);
+        $this->assertNotFalse(simplexml_load_string($xml));
     }
 
     public function test_backup_command_creates_archive_and_rotates(): void
