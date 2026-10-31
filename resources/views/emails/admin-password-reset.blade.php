@@ -1,4 +1,5 @@
 @extends('emails.layouts.aurora')
+@section('nohero', '1')
 @section('title','Admin jelszó-visszaállítás')
 @section('preheader','Jelszó-visszaállítási hivatkozás az adminfelülethez; 30 percig érvényes.')
 @section('eyebrow','BIZTONSÁGI ÉRTESÍTÉS / ADMIN')

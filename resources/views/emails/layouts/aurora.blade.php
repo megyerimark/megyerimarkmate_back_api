@@ -10,6 +10,10 @@
 <tr><td style="padding:30px 34px 20px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td width="53" valign="top"><table role="presentation" cellpadding="0" cellspacing="0" style="border-radius:12px;background:#0f1627;border:1px solid #2a3a66;"><tr><td style="color:#ffffff;font-size:21px;font-weight:800;letter-spacing:-1px;text-align:center;width:44px;height:44px;">M<span style="color:#00d9ff;">.</span></td></tr></table></td><td style="padding-left:12px;color:#ffffff;font-size:15px;font-weight:bold;line-height:20px;letter-spacing:1px;">MEGYERI MÁRK MÁTÉ<br><span style="font-size:10px;letter-spacing:2.4px;color:#8c98b4;font-weight:normal;">WEBFEJLESZTÉS · DIGITÁLIS RENDSZEREK</span></td></tr></table>
 </td></tr>
+@sectionMissing('nohero')
+{{-- A márka 3D identitása: a kristályszikla (JPG, hogy minden levelezőprogram megjelenítse; a szöveg nélküle is teljes). --}}
+<tr><td style="padding:4px 34px 6px;"><img src="https://megyerimarkmate.hu/brand/email-hero.jpg" width="532" alt="" style="display:block;width:100%;max-width:532px;height:auto;border:0;border-radius:14px;background:#0b1222;"></td></tr>
+@endif
 <tr><td style="padding:14px 34px 38px;">
 <p style="font-size:11px;letter-spacing:2.6px;font-weight:bold;color:#6f8bff;margin:0 0 14px;">@yield('eyebrow','MEGYERI / AUTOMATIKUS ÉRTESÍTÉS')</p>
 <h1 style="font-size:31px;line-height:1.12;letter-spacing:-1.2px;font-weight:700;color:#ffffff;margin:0 0 24px;">@yield('headline')</h1>

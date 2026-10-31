@@ -1,4 +1,5 @@
 @extends('emails.layouts.aurora')
+@section('nohero', '1')
 @section('title','Admin bejelentkezési kód')
 @section('preheader','Egyszer használatos biztonsági kód; 10 percig érvényes.')
 @section('eyebrow','BIZTONSÁGI ÉRTESÍTÉS / ADMIN')
