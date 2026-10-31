@@ -41,7 +41,7 @@ class SiteSetting extends Model
         'promo_text_en' => '',
         'promo_ends_at' => '',
         // Megjelenés (admin → Oldalbeállítások → Megjelenés): az egész oldal színvilága.
-        'site_palette' => 'nightblue',
+        'site_palette' => 'cobalt',
         // Automatikus ünnepi téma: a megadott időszakban felülírja az alaptémát (a dátumot a böngésző számolja).
         'seasonal_enabled' => '1',
         'seasonal_christmas' => '1',
@@ -51,7 +51,7 @@ class SiteSetting extends Model
     ];
 
     /** Választható alaptémák (az ünnepi témák automatikusan kapcsolnak, kézzel nem választhatók alapnak). */
-    public const PALETTES = ['nightblue', 'graphite', 'aurora'];
+    public const PALETTES = ['cobalt', 'nightblue', 'graphite', 'aurora'];
     public const SEASONAL_FLAGS = ['seasonal_enabled', 'seasonal_christmas', 'seasonal_easter', 'seasonal_valentine', 'seasonal_national'];
 
     public static function allPublic(): array

@@ -20,7 +20,7 @@ class ThemeSettingsTest extends TestCase
     public function test_defaults_are_public(): void
     {
         $this->getJson('/api/site-settings')->assertOk()
-            ->assertJsonPath('data.site_palette', 'nightblue')
+            ->assertJsonPath('data.site_palette', 'cobalt')
             ->assertJsonPath('data.seasonal_enabled', '1')
             ->assertJsonPath('data.seasonal_christmas', '1');
     }
