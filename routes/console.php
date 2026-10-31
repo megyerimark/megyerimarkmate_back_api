@@ -25,3 +25,12 @@ Schedule::command('portfolio:backup')->dailyAt('02:30')->withoutOverlapping();
 
 // Domain / tárhely / SSL lejárati emlékeztető (30, 14, 7, 3, 1, 0 nappal előtte).
 Schedule::command('portfolio:expiry-reminders')->dailyAt('08:10');
+
+// Hetente visszaállítási próba a legutóbbi mentésen (visszafejtés + tartalom ellenőrzése).
+Schedule::command('portfolio:backup-verify')->weeklyOn(1, '03:40');
+
+// Konzultációs emlékeztető az ügyfélnek kb. 24 órával a találkozó előtt (egyszer).
+Schedule::command('portfolio:consultation-reminders')->hourlyAt(5)->withoutOverlapping();
+
+// Google-értékelés kérése 5 nappal a kódátadás után (egyszer, csak ha a link be van állítva).
+Schedule::command('portfolio:review-requests')->dailyAt('10:20');

@@ -99,4 +99,20 @@ class EncryptedBackupTest extends TestCase
         $this->assertCount(1, File::glob($this->base.'/backups/backup-*.tar.gz'), 'A helyi mentés elkészül.');
         $this->assertSame([], Storage::disk('offsite')->files());
     }
+
+    public function test_backup_verify_restores_latest_backup_and_reports_status(): void
+    {
+        $this->runBackup();
+        $this->artisan('portfolio:backup-verify')->assertSuccessful();
+        $state = Cache::get('portfolio:backup-verified');
+        $this->assertTrue($state['ok']);
+        $this->assertStringContainsString('database.sqlite', $state['message']);
+        // ideiglenes visszafejtett fájl nem marad
+        $this->assertSame([], File::glob(config('portfolio.backup_path').'/.verify-*'));
+
+        // rossz kulccsal a próba elbukik, és ezt jelzi is
+        config()->set('portfolio.backup_key', BackupCrypto::generateKey());
+        $this->artisan('portfolio:backup-verify')->assertFailed();
+        $this->assertFalse(Cache::get('portfolio:backup-verified')['ok']);
+    }
 }

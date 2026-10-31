@@ -2,6 +2,8 @@
 
 return [
     'admin_email' => env('PORTFOLIO_ADMIN_EMAIL'),
+    // Csak a Rendszerállapot kijelzéséhez (a tényleges beállítást a bootstrap/app.php olvassa).
+    'trusted_proxies' => env('TRUSTED_PROXIES'),
     'frontend_url' => rtrim(env('PORTFOLIO_FRONTEND_URL', env('APP_URL', 'http://localhost:4200')), '/'),
     // A nyilvános oldalak magyar és angol címe az oldaltérképhez (sitemap.xml). A frontend
     // src/app/core/site-routes.ts fájljával egyezzen! null = az oldal csak magyarul létezik.
@@ -19,6 +21,12 @@ return [
         '/adatkezeles' => '/en/privacy-policy',
         '/impresszum' => '/en/legal-notice',
         '/aszf' => '/en/terms',
+        // Útmutatók (csak magyarul).
+        '/utmutatok' => null,
+        '/utmutatok/mennyibe-kerul-egy-weboldal' => null,
+        '/utmutatok/landing-oldal-vagy-ceges-weboldal' => null,
+        '/utmutatok/weboldal-keszites-lepesei' => null,
+        '/utmutatok/gyors-es-keresobarat-weboldal' => null,
     ],
     'mail_enabled' => filter_var(env('PORTFOLIO_MAIL_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
     'customer_receipt_enabled' => filter_var(env('PORTFOLIO_CUSTOMER_RECEIPT_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
