@@ -18,7 +18,8 @@ class ClientMessageReceived extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: 'Új üzenet: '.$this->quote->customer_name.' (#'.$this->quote->id.')');
+        // Válasz az adminpéldányra: közvetlenül az ügyfélnek megy.
+        return new Envelope(subject: 'Új üzenet: '.$this->quote->customer_name.' (#'.$this->quote->id.')', replyTo: [new \Illuminate\Mail\Mailables\Address($this->quote->email, $this->quote->customer_name)]);
     }
 
     public function content(): Content

@@ -1,15 +1,18 @@
 @extends('emails.layouts.aurora')
 @section('title','Átadtam a projektedet')
+@section('preheader','A #'.$quote->id.' számú projekt forráskódját és átadási csomagját átadtam.')
 @section('eyebrow','KÓDÁTADÁS')
 @section('headline','Minden a tiéd.')
 @section('content')
-<p style="color:#c7d0ec;line-height:1.8;">Kedves {{ $quote->customer_name }}! Köszönöm a fizetést – a <strong style="color:white;">#{{ $quote->id }}</strong> számú projekt forráskódját és átadási csomagját átadtam.</p>
+<x-mail.text>Kedves {{ $quote->customer_name }}! Köszönöm a fizetést – a #{{ $quote->id }} számú projekt forráskódját és átadási csomagját átadtam.</x-mail.text>
 @if ($quote->documents()->where('is_deliverable', true)->exists())
-<p style="color:#cbd4f0;line-height:1.8;">Az átadott fájlokat a projektoldalon töltheted le.</p>
+<x-mail.text>Az átadott fájlokat a projektoldalon töltheted le.</x-mail.text>
 @endif
 @if ($quote->handover_note)
-<table role="presentation" width="100%" style="border:1px solid #24345e;border-radius:12px;background:#0f1830;"><tr><td style="padding:20px;color:#cbd4f0;white-space:pre-line;line-height:1.75;overflow-wrap:anywhere;">{{ $quote->handover_note }}</td></tr></table>
+<x-mail.details title="ÁTADÁSI MEGJEGYZÉS">
+<tr><td colspan="2" style="padding:6px 20px 18px;color:#c7d0ec;font-size:14px;line-height:1.75;white-space:pre-line;word-break:break-word;">{{ $quote->handover_note }}</td></tr>
+</x-mail.details>
 @endif
-<p style="margin:26px 0;"><a href="{{ $portalUrl }}" style="display:inline-block;padding:13px 22px;border-radius:999px;background:#4263ff;color:#ffffff;font-weight:700;text-decoration:none;">Átadott fájlok megnyitása</a></p>
-<p style="color:#8f9bbd;font-size:12px;line-height:1.7;">A link személyes, ne add tovább. A belépési adatokat és a fájlokat őrizd biztonságos helyen.</p>
+<x-mail.button :href="$portalUrl">Átadott fájlok megnyitása &rarr;</x-mail.button>
+<x-mail.note>A link személyes, ne add tovább. A belépési adatokat és a fájlokat őrizd biztonságos helyen.</x-mail.note>
 @endsection

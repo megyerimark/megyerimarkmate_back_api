@@ -17,7 +17,8 @@ class ProjectAccessRenewed extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: 'Új privát projektlinked – Megyeri Márk Máté');
+        // Az ügyfél válasza a saját postafiókomba érkezik (akkor is, ha a feladó noreply-cím).
+        return new Envelope(subject: 'Új privát projektlinked – Megyeri Márk Máté', replyTo: array_filter([config('portfolio.admin_email')]));
     }
 
     public function content(): Content

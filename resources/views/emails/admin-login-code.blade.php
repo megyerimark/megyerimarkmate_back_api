@@ -5,7 +5,7 @@
 @section('eyebrow','BIZTONSÁGI ÉRTESÍTÉS / ADMIN')
 @section('headline','Erősítsd meg a bejelentkezést.')
 @section('content')
-<p style="color:#c7d0ec;line-height:1.8;">{{ $adminName }}, egy adminbejelentkezést kell megerősítened az alábbi kóddal:</p>
-<p style="font-size:32px;font-weight:800;letter-spacing:7px;text-align:center;padding:18px;color:#a9c0ff;">{{ $code }}</p>
-<p style="color:#a2afd2;font-size:12px;line-height:1.8;">A kód 10 percig érvényes. Ha nem te próbálsz belépni, változtasd meg a jelszavadat.</p>
+<x-mail.text>{{ $adminName }}, egy adminbejelentkezést kell megerősítened az alábbi kóddal:</x-mail.text>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:22px 0;border-collapse:separate;background:#0f1830;border:1px solid #2a3a66;border-radius:14px;"><tr><td align="center" style="padding:22px;color:#ffffff;font-family:'Courier New',monospace;font-size:34px;font-weight:bold;letter-spacing:10px;">{{ $code }}</td></tr></table>
+<x-mail.note>A kód 10 percig érvényes. Ha nem te próbálsz belépni, változtasd meg a jelszavadat.</x-mail.note>
 @endsection

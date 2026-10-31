@@ -17,9 +17,10 @@ class NewsletterConfirmation extends Mailable
 
     public function envelope(): Envelope
     {
+        // Az ügyfél válasza a saját postafiókomba érkezik (akkor is, ha a feladó noreply-cím).
         return new Envelope(subject: $this->subscriber->lang === 'en'
             ? 'Please confirm your subscription – Megyeri Márk Máté'
-            : 'Erősítsd meg a feliratkozásod – Megyeri Márk Máté');
+            : 'Erősítsd meg a feliratkozásod – Megyeri Márk Máté', replyTo: array_filter([config('portfolio.admin_email')]));
     }
 
     public function content(): Content
