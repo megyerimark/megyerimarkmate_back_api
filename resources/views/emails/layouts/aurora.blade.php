@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="hu">
+<html lang="{{ trim($__env->yieldContent('en')) !== '' ? 'en' : 'hu' }}">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><meta name="supported-color-schemes" content="dark"><title>@yield('title','Megyeri Márk | Webfejlesztés')</title></head>
 {{-- Kobalt arculat (mint a weboldal): éjfekete-kék alap, #4263FF kobalt, #00D9FF cián. A sablonok ezt a keretet használják. --}}
 <body style="margin:0;padding:0;background:#05080f;color:#eef2fb;font-family:'Space Grotesk','Manrope',Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;">
@@ -20,10 +20,17 @@
 @yield('content')
 </td></tr>
 <tr><td style="padding:23px 34px;border-top:1px solid #1f2b47;background:#080d19;color:#8c98b4;font-size:12px;line-height:1.8;">
+@hasSection('en')
+<span style="font-size:13px;font-weight:bold;color:#eef2fb;">Márk Máté Megyeri</span> &nbsp;·&nbsp; Web development<br>
+This message was sent by megyerimarkmate.hu to the address you provided.<br>
+@else
 <span style="font-size:13px;font-weight:bold;color:#eef2fb;">Megyeri Márk Máté</span> &nbsp;·&nbsp; Webfejlesztés<br>
 Ezt az üzenetet a megyerimarkmate.hu rendszere küldte a megadott e-mail-címre.<br>
+@endif
 <a style="color:#6f8bff;text-decoration:none;" href="https://megyerimarkmate.hu/">megyerimarkmate.hu</a>
 </td></tr>
 </table>
+@sectionMissing('en')
 <p style="max-width:570px;margin:17px 0 0;color:#6f7b96;font-size:11px;line-height:1.6;text-align:center;">A projektadatokhoz tartozó privát hivatkozásokat biztonságos helyen őrizd meg.</p>
+@endif
 </td></tr></table></body></html>

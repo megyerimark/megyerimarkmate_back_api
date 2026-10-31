@@ -17,7 +17,8 @@ class CustomerQuoteConfirmation extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: 'Ajánlatkérésed beérkezett – Megyeri Márk | Webfejlesztés');
+        // Az ügyfél válasza a saját postafiókomba érkezik (akkor is, ha a feladó noreply-cím).
+        return new Envelope(subject: 'Ajánlatkérésed beérkezett – Megyeri Márk | Webfejlesztés', replyTo: array_filter([config('portfolio.admin_email')]));
     }
 
     public function content(): Content

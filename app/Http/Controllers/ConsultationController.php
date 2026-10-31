@@ -57,9 +57,13 @@ class ConsultationController extends Controller
         if (\App\Support\Mailer::canSend()) {
             // Küldés a válasz után, hogy a foglalás azonnal visszaigazolódjon.
             \Illuminate\Support\defer(function () use ($booking) {
-                foreach (array_filter([$booking->email, config('portfolio.admin_email')]) as $email) {
+                // Az ügyfél a visszaigazolást, én az adminpéldányt kapom (ha a két cím egyezik, csak egy levél megy ki).
+                $recipients = [[$booking->email, true]];
+                $admin = (string) config('portfolio.admin_email');
+                if ($admin !== '' && mb_strtolower($admin) !== mb_strtolower($booking->email)) $recipients[] = [$admin, false];
+                foreach ($recipients as [$email, $forClient]) {
                     try {
-                        Mail::to($email)->send(new ConsultationBooked($booking, $email === $booking->email));
+                        Mail::to($email)->send(new ConsultationBooked($booking, $forClient));
                     } catch (\Throwable $exception) {
                         Log::error('Consultation confirmation failed', ['booking_id' => $booking->id, 'exception_type' => $exception::class]);
                     }

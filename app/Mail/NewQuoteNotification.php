@@ -17,7 +17,8 @@ class NewQuoteNotification extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: 'Új webfejlesztési ajánlatkérés #'.$this->quote->id);
+        // Válasz az adminpéldányra: közvetlenül az ügyfélnek megy.
+        return new Envelope(subject: 'Új webfejlesztési ajánlatkérés #'.$this->quote->id, replyTo: [new \Illuminate\Mail\Mailables\Address($this->quote->email, $this->quote->customer_name)]);
     }
 
     public function content(): Content

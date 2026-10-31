@@ -17,7 +17,8 @@ class ProposalAccepted extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: 'Ajánlat elfogadva #'.$this->quote->id);
+        // Válasz az adminpéldányra: közvetlenül az ügyfélnek megy.
+        return new Envelope(subject: 'Ajánlat elfogadva #'.$this->quote->id, replyTo: [new \Illuminate\Mail\Mailables\Address($this->quote->email, $this->quote->customer_name)]);
     }
 
     public function content(): Content

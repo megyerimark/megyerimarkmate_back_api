@@ -17,7 +17,8 @@ class CustomerAcceptanceConfirmation extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: 'Visszaigazolás: elfogadtad a #'.$this->quote->id.' számú ajánlatot');
+        // Az ügyfél válasza a saját postafiókomba érkezik (akkor is, ha a feladó noreply-cím).
+        return new Envelope(subject: 'Visszaigazolás: elfogadtad a #'.$this->quote->id.' számú ajánlatot', replyTo: array_filter([config('portfolio.admin_email')]));
     }
 
     public function content(): Content

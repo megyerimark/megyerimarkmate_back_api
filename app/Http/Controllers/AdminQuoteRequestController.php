@@ -335,11 +335,11 @@ class AdminQuoteRequestController extends Controller
             $query->orderBy('id')->chunkById(200, function ($rows) use ($out, $safe) {
                 foreach ($rows as $row) {
                     fputcsv($out, array_map($safe, [
-                        $row->id, $row->created_at?->format('Y-m-d H:i'), $row->customer_name, $row->email, $row->phone,
+                        $row->id, $row->created_at?->copy()->timezone('Europe/Budapest')->format('Y-m-d H:i'), $row->customer_name, $row->email, $row->phone,
                         $row->company_name, $row->website_type, $row->status, $row->budget_range, $row->quoted_price_huf,
                         $row->utm_source ?: $row->source, $row->referrer_host, $row->utm_campaign,
-                        $row->first_response_at?->format('Y-m-d H:i'), $row->follow_up_at?->format('Y-m-d'),
-                        $row->proposal_accepted_at?->format('Y-m-d'),
+                        $row->first_response_at?->copy()->timezone('Europe/Budapest')->format('Y-m-d H:i'), $row->follow_up_at?->format('Y-m-d'),
+                        $row->proposal_accepted_at?->copy()->timezone('Europe/Budapest')->format('Y-m-d'),
                     ]), ';', '"', '');
                 }
             });

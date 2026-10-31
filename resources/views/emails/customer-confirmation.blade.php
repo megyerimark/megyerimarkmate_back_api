@@ -4,21 +4,19 @@
 @section('eyebrow','01 / KAPCSOLATFELVÉTEL')
 @section('headline','Megérkezett az elképzelésed.')
 @section('content')
-<p style="color:#c7d0ec;line-height:1.8;">Kedves {{ $quote->customer_name }}!</p>
-<p style="color:#c7d0ec;line-height:1.8;">Köszönöm, hogy megkerestél. A <strong style="color:#fff;">#{{ $quote->id }}</strong> számú ajánlatkérésedet megkaptam. Hamarosan átnézem a részleteket.</p>
-<table role="presentation" width="100%" style="margin:22px 0;background:#141f3f;border:1px solid #334679;border-radius:12px;"><tr><td style="padding:18px;color:#c7d0ec;font-size:13px;line-height:1.7;">AZ AJÁNLATKÉRÉSED AZONOSÍTÓJA<br><strong style="font-size:24px;color:#fff;">#{{ $quote->id }}</strong></td></tr></table>
+<x-mail.text>Kedves {{ $quote->customer_name }}!</x-mail.text>
+<x-mail.text>Köszönöm, hogy megkerestél. Az ajánlatkérésedet megkaptam, hamarosan átnézem a részleteket, és jelentkezem.</x-mail.text>
+<x-mail.highlight label="AZ AJÁNLATKÉRÉSED AZONOSÍTÓJA" value="#{{ $quote->id }}" />
 @if($quote->promo_percent)
-<table role="presentation" width="100%" style="margin:0 0 22px;background:#0f1a3a;border:1px solid #4263ff;border-radius:12px;"><tr><td style="padding:18px;color:#dfe7ff;font-size:13px;line-height:1.7;">✦ AKCIÓS KEDVEZMÉNY RÖGZÍTVE<br><strong style="font-size:22px;color:#fff;">−{{ $quote->promo_percent }}%</strong>@if($quote->promo_title) <span style="color:#a9c0ff;">– {{ $quote->promo_title }}</span>@endif<br><span style="font-size:12px;color:#b4c0dc;">Az ajánlatkérésed az akció ideje alatt érkezett ({{ $quote->created_at->timezone('Europe/Budapest')->format('Y. m. d.') }}), ezért a kedvezményt az ajánlatban érvényesítem.</span></td></tr></table>
+<x-mail.highlight label="✦ AKCIÓS KEDVEZMÉNY RÖGZÍTVE" value="−{{ $quote->promo_percent }}%{{ $quote->promo_title ? ' – '.$quote->promo_title : '' }}" sub="Az ajánlatkérésed az akció ideje alatt érkezett ({{ $quote->created_at->copy()->timezone('Europe/Budapest')->format('Y. m. d.') }}), ezért a kedvezményt az ajánlatban érvényesítem." />
 @endif
 @if(str_starts_with($quote->project_description ?? '', 'AURORA KVÍZ – IGÉNYFELMÉRÉS'))
-<table role="presentation" width="100%" style="margin:22px 0;background:#0f1a3a;border:1px solid #3550d9;border-radius:13px;"><tr><td style="padding:21px;color:#d5daf7;line-height:1.8;">
-<span style="display:block;color:#8fb0ff;font-size:11px;font-weight:bold;letter-spacing:1px;">✦ AURORA / IGÉNYFELMÉRŐ</span>
-<strong style="display:block;color:#fff;font-size:18px;margin:8px 0 12px;">A válaszaid összefoglalása</strong>
-<p style="font-size:12px;line-height:1.85;color:#c9d3f1;">{!! nl2br(e($quote->project_description)) !!}</p>
-</td></tr></table>
-<p style="color:#9fafcf;font-size:12px;line-height:1.7;">A fenti javaslat kiindulópont, nem végleges műszaki terv vagy árajánlat. A részleteket közösen pontosítjuk.</p>
+<x-mail.details title="✦ IGÉNYFELMÉRŐ / A VÁLASZAID">
+<tr><td colspan="2" style="padding:6px 20px 18px;color:#c7d0ec;font-size:13px;line-height:1.85;white-space:pre-line;word-break:break-word;">{{ trim(\Illuminate\Support\Str::after($quote->project_description, 'AURORA KVÍZ – IGÉNYFELMÉRÉS')) }}</td></tr>
+</x-mail.details>
+<x-mail.note>A fenti javaslat kiindulópont, nem végleges műszaki terv vagy árajánlat. A részleteket közösen pontosítjuk.</x-mail.note>
 @endif
-<p style="color:#c7d0ec;line-height:1.7;">A személyes projektfelületeden követheted a megkeresésedet és a későbbi ajánlatot.</p>
-<table role="presentation" cellspacing="0" cellpadding="0"><tr><td style="background:#4263ff;border-radius:10px;"><a href="{{ $portalUrl }}" style="display:inline-block;padding:16px 25px;font-size:14px;font-weight:bold;text-decoration:none;color:#fff;">Privát projektfelület megnyitása &rarr;</a></td></tr></table>
-<p style="color:#9fafcf;font-size:12px;line-height:1.7;margin-top:26px;">Ez a link személyes hozzáférést ad, ezért kérlek, ne oszd meg másokkal. A visszaigazolás nem végleges árajánlat.</p>
+<p style="margin:22px 0 0;color:#c7d0ec;font-size:15px;line-height:1.75;">A személyes projektfelületeden követheted a megkeresésedet és a későbbi ajánlatot.</p>
+<x-mail.button :href="$portalUrl">Privát projektfelület megnyitása &rarr;</x-mail.button>
+<x-mail.note>Ez a link személyes hozzáférést ad, ezért kérlek, ne oszd meg másokkal. A visszaigazolás nem végleges árajánlat.</x-mail.note>
 @endsection
