@@ -4,7 +4,7 @@
 @section('headline','Elkészült a projekted!')
 @section('content')
 <p style="color:#c7d0ec;line-height:1.8;">Kedves {{ $quote->customer_name }}! Örömmel jelzem, hogy a <strong style="color:white;">#{{ $quote->id }}</strong> számú projekt munkái elkészültek.</p>
-<table role="presentation" width="100%" style="border:1px solid #38457e;border-radius:12px;background:#162247;"><tr><td style="padding:22px;color:#c7d0ec;line-height:1.9;">
+<table role="presentation" width="100%" style="border:1px solid #24345e;border-radius:12px;background:#0f1830;"><tr><td style="padding:22px;color:#c7d0ec;line-height:1.9;">
 Vállalási díj: <strong style="color:#fff;">{{ number_format($quote->quoted_price_huf, 0, ',', ' ') }} Ft</strong><br>
 @if ($quote->deposit_paid_at && $quote->depositAmount())
 Befizetett előleg: <strong style="color:#fff;">− {{ number_format($quote->depositAmount(), 0, ',', ' ') }} Ft</strong><br>
@@ -20,6 +20,6 @@ Befizetett előleg: <strong style="color:#fff;">− {{ number_format($quote->dep
 @else
 <p style="color:#cbd4f0;line-height:1.8;">Hamarosan átadom a forráskódot és az átadási csomagot; erről külön e-mailt kapsz.</p>
 @endif
-<table role="presentation" cellspacing="0" cellpadding="0"><tr><td style="background:#6151ec;border-radius:10px;"><a style="display:inline-block;padding:16px 25px;color:white;text-decoration:none;font-weight:bold;font-size:14px;" href="{{ $portalUrl }}">{{ $quote->final_amount_huf > 0 ? 'Fennmaradó összeg rendezése' : 'Projekt megnyitása' }} &rarr;</a></td></tr></table>
+<table role="presentation" cellspacing="0" cellpadding="0"><tr><td style="background:#4263ff;border-radius:10px;"><a style="display:inline-block;padding:16px 25px;color:white;text-decoration:none;font-weight:bold;font-size:14px;" href="{{ $portalUrl }}">{{ $quote->final_amount_huf > 0 ? 'Fennmaradó összeg rendezése' : 'Projekt megnyitása' }} &rarr;</a></td></tr></table>
 <p style="color:#9faece;font-size:12px;line-height:1.75;">A link személyes, kérlek, ne továbbítsd. Kérdés esetén a projektoldalon üzenetben is elérsz.</p>
 @endsection
