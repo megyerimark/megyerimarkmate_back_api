@@ -12,7 +12,7 @@
 </td></tr>
 @sectionMissing('nohero')
 {{-- A márka 3D identitása: a kristályszikla (JPG, hogy minden levelezőprogram megjelenítse; a szöveg nélküle is teljes). --}}
-<tr><td style="padding:4px 34px 6px;"><img src="https://megyerimarkmate.hu/brand/email-hero.jpg" width="532" alt="" style="display:block;width:100%;max-width:532px;height:auto;border:0;border-radius:14px;background:#0b1222;"></td></tr>
+<tr><td style="padding:4px 34px 6px;"><img src="https://megyerimarkmate.hu/brand/email-hero.jpg" width="532" height="151" alt="Megyeri Márk Máté – webfejlesztés" style="display:block;width:100%;max-width:532px;height:auto;border:0;border-radius:14px;background:#0b1222;color:#8fb0ff;font-size:13px;line-height:151px;text-align:center;"></td></tr>
 @endif
 <tr><td style="padding:14px 34px 38px;">
 <p style="font-size:11px;letter-spacing:2.6px;font-weight:bold;color:#6f8bff;margin:0 0 14px;">@yield('eyebrow','MEGYERI / AUTOMATIKUS ÉRTESÍTÉS')</p>
