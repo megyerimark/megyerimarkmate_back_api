@@ -2,6 +2,8 @@
 
 return [
     'admin_email' => env('PORTFOLIO_ADMIN_EMAIL'),
+    // Csak a Rendszerállapot kijelzéséhez (a tényleges beállítást a bootstrap/app.php olvassa).
+    'trusted_proxies' => env('TRUSTED_PROXIES'),
     'frontend_url' => rtrim(env('PORTFOLIO_FRONTEND_URL', env('APP_URL', 'http://localhost:4200')), '/'),
     // A nyilvános oldalak magyar és angol címe az oldaltérképhez (sitemap.xml). A frontend
     // src/app/core/site-routes.ts fájljával egyezzen! null = az oldal csak magyarul létezik.

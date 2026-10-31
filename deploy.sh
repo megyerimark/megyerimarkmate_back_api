@@ -56,5 +56,5 @@ echo "▶ Karbantartási mód ki"
 "$PHP" artisan up
 trap - ERR
 
-echo "✔ Kész. Ellenőrizd az adminban: Fiók és biztonság → Rendszerállapot (v20 legyen)."
+echo "✔ Kész. Ellenőrizd az adminban: Fiók és biztonság → Rendszerállapot (v21 legyen)."
 echo "  Cron (ha még nincs): * * * * * cd $(pwd) && $PHP artisan schedule:run >> /dev/null 2>&1"

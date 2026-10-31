@@ -147,6 +147,7 @@ class QuoteRequest extends Model
             'final_paid_at' => 'datetime',
             'final_checkout_expires_at' => 'datetime',
             'handed_over_at' => 'datetime',
+            'review_requested_at' => 'datetime',
             'acceptance_evidence' => 'array',
         ];
     }

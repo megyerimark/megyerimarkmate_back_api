@@ -41,4 +41,14 @@ class SystemStatusTest extends TestCase
         $this->getJson('/api/admin/system-status')->assertOk()->assertJsonPath('data.checks.0.ok', false)
             ->assertJsonPath('data.checks.0.missing_tables.0.table', 'finance_entries');
     }
+
+    public function test_turnstile_half_configuration_is_flagged(): void
+    {
+        config()->set(['services.turnstile.site_key' => null, 'services.turnstile.secret_key' => 'secret-only']);
+        $checks = collect($this->actingAs($this->admin())->getJson('/api/admin/system-status')->assertOk()->json('data.checks'))->keyBy('key');
+        $this->assertFalse($checks['turnstile']['ok']);
+        $this->assertStringContainsString('422', $checks['turnstile']['hint']);
+        $this->assertStringNotContainsString('secret-only', json_encode($checks));
+        foreach (['session_encrypt', 'log_level', 'proxies', 'backup_verified'] as $key) $this->assertArrayHasKey($key, $checks->all());
+    }
 }
