@@ -169,7 +169,7 @@ Ez futtatja naponta:
 
 **Pénzügyek.** Bevétel/kiadás tételek, havi bruttó/nettó, ÁFA (AAM vagy 27%) és becsült átalányadó (SZJA, TB, szocho) 2026-os alapértékekkel, figyelmeztetéssel az AAM- és átalányadó-határ közelében. Ez becslés, nem könyvelés.
 
-**Oldaltérkép.** A `GET /api/sitemap.xml` a statikus oldalak mellett minden publikált referenciát (`/munkak/{slug}`) tartalmaz; a frontend `robots.txt` hivatkozik rá.
+**Oldaltérkép.** Az oldaltérkép egyetlen forrása a backend: `GET /sitemap.xml` (a frontend `.htaccess`-e ide irányítja; a `GET /api/sitemap.xml` ugyanazt adja). Tartalma a `config/portfolio.php` `seo_pages` listája (magyar ↔ angol `/en/…` címpárok, a frontend `src/app/core/site-routes.ts` fájljával egyezzen!) és minden publikált, valódi referencia (`/munkak/{slug}`). Referenciának csak akkor van angol változata (`/en/work/{slug}`), ha az adminban az angol cím és összefoglaló ki van töltve.
 
 **DDoS / árasztás elleni védelem.** Az alkalmazásszintű korlátok (globális 300 kérés/perc/IP + végpontonkénti korlátok) a kisebb támadásokat és a scrapereket fogják meg. Valódi DDoS ellen a szerver elé kell egy szolgáltatás – ajánlott az ingyenes **Cloudflare**: domain DNS-ét a Cloudflare-re irányítod (narancs felhő), SSL mód „Full (strict)”, „Bot Fight Mode” bekapcsolva, támadáskor „Under Attack Mode”. Ezután állítsd be: `TRUSTED_PROXIES=cloudflare` – így a látogató IP-címét (`X-Forwarded-For`) csak a Cloudflare saját címeiről (`bootstrap/cloudflare-ips.php`) fogadjuk el, és a korlátok a valódi IP-re vonatkoznak. **Ne használd a `*` értéket**, ha a szerver Cloudflare nélkül is elérhető: akkor bárki hamis IP-címmel kerülhetné ki a korlátokat. Ha a tárhely engedi, a 80/443-as portot is szűkítsd a Cloudflare címeire.
 

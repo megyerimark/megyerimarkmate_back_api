@@ -68,31 +68,39 @@ class PublicContentController extends Controller
     }
 
     /**
-     * Dinamikus oldaltérkép: a statikus oldalak mellett minden publikált referencia
-     * (munkak/{slug}) automatikusan bekerül, így a Google új esettanulmányokat is megtalál.
-     * Minden oldal magyarul és angolul (?lang=en) is szerepel, egymásra hivatkozó hreflang-párokkal – így a Google a magyar és a külföldi keresésekben is a megfelelő nyelvű változatot mutatja.
+     * Az oldaltérkép egyetlen forrása (a frontend .htaccess-e a /sitemap.xml-t is ide irányítja).
+     * Nyilvános oldalak és publikált, valódi referenciák, magyar és angol címmel, kölcsönös hreflang-párokkal.
+     * Referenciánál angol változat csak akkor szerepel, ha az angol cím és összefoglaló ki van töltve
+     * (különben az angol oldal a magyar szöveg duplikátuma lenne).
      */
     public function sitemap(): Response
     {
         $base = config('portfolio.frontend_url');
-        $pages = ['/', '/tervezo', '/ajanlatkeres', '/projekt-kviz', '/konzultacio', '/adatkezeles', '/impresszum', '/aszf'];
-        $urls = collect($pages)->map(fn ($path) => ['loc' => $base.$path, 'lastmod' => null]);
+        $entries = collect(config('portfolio.seo_pages'))
+            ->map(fn (?string $en, string $hu) => ['hu' => $hu, 'en' => $en, 'lastmod' => null])
+            ->values();
         PortfolioProject::where('is_published', true)->where('is_demo', false)
-            ->orderBy('sort_order')->get(['slug', 'updated_at'])
-            ->each(fn ($p) => $urls->push(['loc' => $base.'/munkak/'.rawurlencode($p->slug), 'lastmod' => $p->updated_at?->toDateString()]));
+            ->orderBy('sort_order')->get(['slug', 'updated_at', 'title_en', 'summary_en'])
+            ->each(fn ($p) => $entries->push([
+                'hu' => '/munkak/'.rawurlencode($p->slug),
+                'en' => trim((string) $p->title_en) !== '' && trim((string) $p->summary_en) !== '' ? '/en/work/'.rawurlencode($p->slug) : null,
+                'lastmod' => $p->updated_at?->toDateString(),
+            ]));
 
-        $e = fn (string $url) => htmlspecialchars($url, ENT_XML1);
+        $e = fn (string $path) => htmlspecialchars($base.($path === '/' ? '/' : $path), ENT_XML1);
         $xml = '<?xml version="1.0" encoding="UTF-8"?>'."\n"
             .'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">'."\n";
-        foreach ($urls as $url) {
-            $variants = ['hu' => $url['loc'], 'en' => $url['loc'].'?lang=en'];
+        foreach ($entries as $entry) {
+            $variants = array_filter(['hu' => $entry['hu'], 'en' => $entry['en']]);
             $alternates = '';
-            foreach ($variants + ['x-default' => $url['loc']] as $lang => $href) {
-                $alternates .= '<xhtml:link rel="alternate" hreflang="'.$lang.'" href="'.$e($href).'"/>';
+            if (count($variants) > 1) {
+                foreach ($variants + ['x-default' => $entry['hu']] as $lang => $path) {
+                    $alternates .= '<xhtml:link rel="alternate" hreflang="'.$lang.'" href="'.$e($path).'"/>';
+                }
             }
-            foreach ($variants as $loc) {
-                $xml .= '  <url><loc>'.$e($loc).'</loc>'
-                    .($url['lastmod'] ? '<lastmod>'.$url['lastmod'].'</lastmod>' : '').$alternates.'</url>'."\n";
+            foreach ($variants as $path) {
+                $xml .= '  <url><loc>'.$e($path).'</loc>'
+                    .($entry['lastmod'] ? '<lastmod>'.$entry['lastmod'].'</lastmod>' : '').$alternates.'</url>'."\n";
             }
         }
         $xml .= '</urlset>'."\n";

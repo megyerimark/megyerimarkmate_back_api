@@ -131,16 +131,28 @@ class SecurityHardeningTest extends TestCase
 
     public function test_sitemap_lists_static_pages_and_only_published_real_projects(): void
     {
-        PortfolioProject::create(['slug' => 'valodi', 'title' => 'Valódi', 'summary' => 'x', 'is_published' => true, 'is_demo' => false]);
+        $base = config('portfolio.frontend_url');
+        PortfolioProject::create(['slug' => 'valodi', 'title' => 'Valódi', 'summary' => 'x', 'is_published' => true, 'is_demo' => false, 'title_en' => 'Real', 'summary_en' => 'y']);
+        PortfolioProject::create(['slug' => 'csak-magyar', 'title' => 'Csak magyar', 'summary' => 'x', 'is_published' => true, 'is_demo' => false]);
         PortfolioProject::create(['slug' => 'rejtett', 'title' => 'Rejtett', 'summary' => 'x', 'is_published' => false, 'is_demo' => false]);
         $xml = $this->get('/api/sitemap.xml')->assertOk()->assertHeader('Content-Type', 'application/xml; charset=UTF-8')->getContent();
-        $this->assertStringContainsString('/munkak/valodi', $xml);
-        $this->assertStringContainsString('/impresszum', $xml);
+        $this->assertStringContainsString('<loc>'.$base.'/munkak/valodi</loc>', $xml);
+        $this->assertStringContainsString('<loc>'.$base.'/impresszum</loc>', $xml);
+        $this->assertStringContainsString('<loc>'.$base.'/weboldal-keszites</loc>', $xml);
         $this->assertStringNotContainsString('rejtett', $xml);
-        // angol változat hreflang-párral
-        $this->assertStringContainsString('<loc>'.config('portfolio.frontend_url').'/munkak/valodi?lang=en</loc>', $xml);
-        $this->assertStringContainsString('hreflang="en" href="'.config('portfolio.frontend_url').'/ajanlatkeres?lang=en"', $xml);
+        $this->assertStringNotContainsString('?lang=', $xml);
+        // angol változat az /en/ alatt, kölcsönös hreflang-párral
+        $this->assertStringContainsString('<loc>'.$base.'/en/work/valodi</loc>', $xml);
+        $this->assertStringContainsString('hreflang="en" href="'.$base.'/en/request-a-quote"', $xml);
+        $this->assertStringContainsString('<loc>'.$base.'/en/website-development</loc>', $xml);
+        // angol szöveg nélküli referenciának nincs angol változata
+        $this->assertStringContainsString('<loc>'.$base.'/munkak/csak-magyar</loc>', $xml);
+        $this->assertStringNotContainsString('/en/work/csak-magyar', $xml);
         $this->assertNotFalse(simplexml_load_string($xml));
+        // a gyökérben is elérhető, ugyanazzal a tartalommal, süti nélkül
+        $root = $this->get('/sitemap.xml')->assertOk()->assertHeader('Content-Type', 'application/xml; charset=UTF-8');
+        $this->assertSame($xml, $root->getContent());
+        $this->assertEmpty($root->headers->getCookies());
     }
 
     public function test_backup_command_creates_archive_and_rotates(): void
