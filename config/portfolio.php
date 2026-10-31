@@ -21,6 +21,12 @@ return [
         '/adatkezeles' => '/en/privacy-policy',
         '/impresszum' => '/en/legal-notice',
         '/aszf' => '/en/terms',
+        // Útmutatók (csak magyarul).
+        '/utmutatok' => null,
+        '/utmutatok/mennyibe-kerul-egy-weboldal' => null,
+        '/utmutatok/landing-oldal-vagy-ceges-weboldal' => null,
+        '/utmutatok/weboldal-keszites-lepesei' => null,
+        '/utmutatok/gyors-es-keresobarat-weboldal' => null,
     ],
     'mail_enabled' => filter_var(env('PORTFOLIO_MAIL_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
     'customer_receipt_enabled' => filter_var(env('PORTFOLIO_CUSTOMER_RECEIPT_ENABLED', true), FILTER_VALIDATE_BOOLEAN),

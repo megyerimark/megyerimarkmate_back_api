@@ -138,6 +138,7 @@ class SecurityHardeningTest extends TestCase
         $xml = $this->get('/api/sitemap.xml')->assertOk()->assertHeader('Content-Type', 'application/xml; charset=UTF-8')->getContent();
         $this->assertStringContainsString('<loc>'.$base.'/munkak/valodi</loc>', $xml);
         $this->assertStringContainsString('<loc>'.$base.'/impresszum</loc>', $xml);
+        $this->assertStringContainsString('<loc>'.$base.'/utmutatok/mennyibe-kerul-egy-weboldal</loc>', $xml);
         $this->assertStringContainsString('<loc>'.$base.'/weboldal-keszites</loc>', $xml);
         $this->assertStringNotContainsString('rejtett', $xml);
         $this->assertStringNotContainsString('?lang=', $xml);
