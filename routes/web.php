@@ -11,7 +11,16 @@ Route::get('/', fn () => response()->json([
 ]));
 // Oldaltérkép a gyökérben is (a frontend .htaccess-e ide irányítja): munkamenet és süti nélkül.
 Route::get('/sitemap.xml', [PublicContentController::class, 'sitemap'])
-    ->withoutMiddleware([\Illuminate\Session\Middleware\StartSession::class, \Illuminate\View\Middleware\ShareErrorsFromSession::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class, \Illuminate\Cookie\Middleware\EncryptCookies::class, \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class])
+    // Az újabb Laravel a CSRF-védelmet PreventRequestForgery néven futtatja (a ValidateCsrfToken ennek régi neve):
+    // mindkettőt kivesszük, különben munkamenet nélkül 500-as hibát ad.
+    ->withoutMiddleware(array_values(array_filter([
+        \Illuminate\Session\Middleware\StartSession::class,
+        \Illuminate\View\Middleware\ShareErrorsFromSession::class,
+        \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+        'Illuminate\\Foundation\\Http\\Middleware\\PreventRequestForgery',
+        \Illuminate\Cookie\Middleware\EncryptCookies::class,
+        \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
+    ], fn (string $class) => class_exists($class))))
     ->middleware('throttle:60,1,get--root-sitemap.xml');
 Route::post('/admin/login', [AdminAuthController::class, 'login'])->middleware(['throttle:admin-login', 'turnstile']);
 Route::post('/admin/logout', [AdminAuthController::class, 'logout'])->middleware('auth');
