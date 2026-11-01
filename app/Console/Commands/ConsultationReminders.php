@@ -31,7 +31,7 @@ class ConsultationReminders extends Command
             ->whereHas('slot', fn ($q) => $q->whereBetween('starts_at', [now()->addHours(2), now()->addHours(25)]))
             ->with('slot')->get();
         foreach ($bookings as $booking) {
-            if ($booking->created_at && $booking->created_at->greaterThan($booking->slot->starts_at->copy()->subHours(24))) {
+            if ($booking->created_at && $booking->created_at->greaterThanOrEqualTo($booking->slot->starts_at->copy()->subHours(24))) {
                 continue;
             }
             try {
