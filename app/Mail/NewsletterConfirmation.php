@@ -13,7 +13,11 @@ class NewsletterConfirmation extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public NewsletterSubscriber $subscriber, public string $confirmUrl) {}
+    public function __construct(public NewsletterSubscriber $subscriber, public string $confirmUrl)
+    {
+        // A levél nyelve: az ügyfél nyelve (az admin példányok mindig magyarul).
+        $this->locale(\App\Support\MailText::langOf($subscriber));
+    }
 
     public function envelope(): Envelope
     {

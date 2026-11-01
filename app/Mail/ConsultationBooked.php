@@ -17,7 +17,11 @@ class ConsultationBooked extends Mailable
     use Queueable, SerializesModels;
 
     /** @param bool $changed Az ügyfél a kezelőlinkkel módosította az időpontot. */
-    public function __construct(public ConsultationBooking $booking, public bool $forClient, public bool $changed = false) {}
+    public function __construct(public ConsultationBooking $booking, public bool $forClient, public bool $changed = false)
+    {
+        // A levél nyelve: az ügyfél nyelve (az admin példányok mindig magyarul).
+        $this->locale($forClient ? \App\Support\MailText::langOf($booking) : 'hu');
+    }
 
     public function envelope(): Envelope
     {
@@ -28,8 +32,8 @@ class ConsultationBooked extends Mailable
         $when = $this->booking->slot->starts_at->copy()->timezone('Europe/Budapest')->format('Y. m. d. H:i');
         return new Envelope(
             subject: match (true) {
-                $this->forClient && $this->changed => 'Módosított időpont: konzultáció '.$when.' – Megyeri Márk Máté',
-                $this->forClient => 'Visszaigazolás: konzultáció '.$when.' – Megyeri Márk Máté',
+                $this->forClient && $this->changed => mt('Módosított időpont: konzultáció :when – Megyeri Márk Máté', ['when' => \App\Support\MailText::dateTime($this->booking->slot->starts_at)]),
+                $this->forClient => mt('Visszaigazolás: konzultáció :when – Megyeri Márk Máté', ['when' => \App\Support\MailText::dateTime($this->booking->slot->starts_at)]),
                 $this->changed => 'Konzultáció átfoglalva: '.$this->booking->customer_name.' – '.$when,
                 default => 'Új konzultációfoglalás: '.$this->booking->customer_name.' – '.$when,
             },
@@ -40,7 +44,7 @@ class ConsultationBooked extends Mailable
     public function content(): Content
     {
         return new Content(view: 'emails.consultation-booked', with: [
-            'start' => $this->booking->slot->starts_at->copy()->timezone('Europe/Budapest')->locale('hu'),
+            'start' => $this->booking->slot->starts_at->copy()->timezone('Europe/Budapest')->locale(\App\Support\MailText::isEnglish() ? 'en' : 'hu'),
             'end' => $this->booking->slot->starts_at->copy()->timezone('Europe/Budapest')->addMinutes((int) $this->booking->slot->duration_minutes),
             'googleUrl' => ConsultationCalendar::googleUrl($this->booking),
             // A kezelőlink csak az ügyfél példányában szerepel (az adminpéldány továbbítható).

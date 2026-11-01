@@ -35,6 +35,7 @@ class ConsultationController extends Controller
             'notes' => ['nullable', 'string', 'max:1000'],
             'privacy_notice_acknowledged' => ['required', 'accepted'],
             'website' => ['nullable', 'max:0'],
+            'lang' => ['nullable', 'in:hu,en'],
         ]);
         $booking = DB::transaction(function () use ($data): ConsultationBooking {
             $slot = ConsultationSlot::query()->lockForUpdate()->findOrFail($data['consultation_slot_id']);
@@ -50,7 +51,7 @@ class ConsultationController extends Controller
             return $slot->booking()->create([
                 'customer_name' => $data['customer_name'], 'email' => $data['email'],
                 'phone' => $data['phone'] ?? null, 'notes' => $data['notes'] ?? null,
-                'privacy_notice_acknowledged_at' => now(),
+                'privacy_notice_acknowledged_at' => now(), 'lang' => $data['lang'] ?? 'hu',
             ]);
         });
         $booking->load('slot');

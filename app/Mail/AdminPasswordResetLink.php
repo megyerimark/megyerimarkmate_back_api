@@ -12,7 +12,11 @@ class AdminPasswordResetLink extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public string $adminName, public string $resetUrl) {}
+    public function __construct(public string $adminName, public string $resetUrl)
+    {
+        // A levél nyelve: az ügyfél nyelve (az admin példányok mindig magyarul).
+        $this->locale('hu');
+    }
 
     public function envelope(): Envelope
     {

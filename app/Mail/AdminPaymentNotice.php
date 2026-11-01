@@ -14,7 +14,11 @@ class AdminPaymentNotice extends Mailable
     use Queueable, SerializesModels;
 
     /** @param string[] $lines */
-    public function __construct(public string $headline, public array $lines) {}
+    public function __construct(public string $headline, public array $lines)
+    {
+        // A levél nyelve: az ügyfél nyelve (az admin példányok mindig magyarul).
+        $this->locale('hu');
+    }
 
     public function envelope(): Envelope
     {
