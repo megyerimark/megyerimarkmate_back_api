@@ -16,20 +16,24 @@ class ConsultationReminder extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public ConsultationBooking $booking) {}
+    public function __construct(public ConsultationBooking $booking)
+    {
+        // A levél nyelve: az ügyfél nyelve (az admin példányok mindig magyarul).
+        $this->locale(\App\Support\MailText::langOf($booking));
+    }
 
     public function envelope(): Envelope
     {
         $start = $this->booking->slot->starts_at->copy()->timezone('Europe/Budapest');
         return new Envelope(
-            subject: 'Emlékeztető: '.$this->dayWord().' '.$start->format('H:i').'-kor konzultáció – Megyeri Márk Máté',
+            subject: mt('Emlékeztető: :day :time-kor konzultáció – Megyeri Márk Máté', ['day' => $this->dayWord(), 'time' => $start->format('H:i')]),
             replyTo: array_filter([config('portfolio.admin_email')]),
         );
     }
 
     public function content(): Content
     {
-        $start = $this->booking->slot->starts_at->copy()->timezone('Europe/Budapest')->locale('hu');
+        $start = $this->booking->slot->starts_at->copy()->timezone('Europe/Budapest')->locale(\App\Support\MailText::isEnglish() ? 'en' : 'hu');
         return new Content(view: 'emails.consultation-reminder', with: [
             'start' => $start,
             'end' => $start->copy()->addMinutes((int) $this->booking->slot->duration_minutes),
@@ -46,9 +50,9 @@ class ConsultationReminder extends Mailable
         $start = $this->booking->slot->starts_at->copy()->timezone('Europe/Budapest');
         $today = now('Europe/Budapest');
         return match (true) {
-            $start->isSameDay($today) => 'ma',
-            $start->isSameDay($today->copy()->addDay()) => 'holnap',
-            default => $start->format('Y. m. d.'),
+            $start->isSameDay($today) => mt('ma'),
+            $start->isSameDay($today->copy()->addDay()) => mt('holnap'),
+            default => \App\Support\MailText::date($start),
         };
     }
 

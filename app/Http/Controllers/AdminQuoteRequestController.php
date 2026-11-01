@@ -262,7 +262,7 @@ class AdminQuoteRequestController extends Controller
             return response()->json(['message' => 'Valós SMTP-küldés szükséges az új link biztonságos kézbesítéséhez.'], 503);
         }
         $token = bin2hex(random_bytes(32));
-        $url = config('portfolio.frontend_url').'/ugyfel/projekt#'.$token;
+        $url = \App\Support\MailText::frontendLink('/ugyfel/projekt', $token, $quoteRequest);
         try {
             Mail::to($quoteRequest->email)->send(new ProjectAccessRenewed($quoteRequest, $url));
         } catch (\Throwable $exception) {

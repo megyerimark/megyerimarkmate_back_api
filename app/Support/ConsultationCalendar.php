@@ -13,7 +13,7 @@ class ConsultationCalendar
 {
     public static function title(): string
     {
-        return 'Konzultáció – Megyeri Márk Máté';
+        return mt('Konzultáció – Megyeri Márk Máté');
     }
 
     public static function meetingUrl(): ?string
@@ -24,9 +24,9 @@ class ConsultationCalendar
     public static function description(ConsultationBooking $booking): string
     {
         $meeting = self::meetingUrl();
-        return 'Konzultációs időpont (#'.$booking->id.'). '
-            .($meeting ? 'Videóhívás: '.$meeting.' ' : 'A találkozó módját (online vagy telefon) e-mailben egyeztetjük. ')
-            .'Módosítás vagy lemondás: a visszaigazoló e-mailben kapott személyes linkkel.';
+        return mt('Konzultációs időpont (#:id).', ['id' => $booking->id]).' '
+            .($meeting ? mt('Videóhívás: :url', ['url' => $meeting]).' ' : mt('A találkozó módját (online vagy telefon) e-mailben egyeztetjük.').' ')
+            .mt('Módosítás vagy lemondás: a visszaigazoló e-mailben kapott személyes linkkel.');
     }
 
     public static function start(ConsultationBooking $booking): CarbonInterface

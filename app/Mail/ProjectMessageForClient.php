@@ -15,12 +15,16 @@ class ProjectMessageForClient extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public QuoteRequest $quote, public ProjectMessage $projectMessage, public string $portalUrl) {}
+    public function __construct(public QuoteRequest $quote, public ProjectMessage $projectMessage, public string $portalUrl)
+    {
+        // A levél nyelve: az ügyfél nyelve (az admin példányok mindig magyarul).
+        $this->locale(\App\Support\MailText::langOf($quote));
+    }
 
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Új üzenet a projekteddel kapcsolatban (#'.$this->quote->id.') – Megyeri Márk Máté',
+            subject: mt('Új üzenet a projekteddel kapcsolatban (#:id) – Megyeri Márk Máté', ['id' => $this->quote->id]),
             replyTo: array_filter([config('portfolio.admin_email')]),
         );
     }

@@ -116,7 +116,7 @@ class ClientProjectController extends Controller
         });
         // Ekertv. 6. §: az elektronikus úton tett elfogadást haladéktalanul vissza kell igazolni az ügyfélnek.
         if (! $alreadyAccepted && \App\Support\Mailer::canSend()) {
-            $portalUrl = config('portfolio.frontend_url').'/ugyfel/projekt#'.$data['token'];
+            $portalUrl = \App\Support\MailText::frontendLink('/ugyfel/projekt', $data['token'], $quote);
             \Illuminate\Support\defer(function () use ($quote, $portalUrl) {
                 try {
                     Mail::to($quote->email)->send(new CustomerAcceptanceConfirmation($quote, $portalUrl));

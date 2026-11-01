@@ -17,6 +17,7 @@ class QuoteRequestController extends Controller
     {
         $data = $request->safe()->except(['website', 'privacy_notice_acknowledged']);
         $quote = new QuoteRequest($data);
+        $quote->lang = in_array($data['lang'] ?? null, ['hu', 'en'], true) ? $data['lang'] : 'hu';
         $quote->privacy_notice_acknowledged_at = now();
         // Az ajánlatkérés pillanatában érvényes akció rögzítése (a látogató nem küldheti, a szerver dönti el).
         $promo = \App\Support\Promotion::current();
@@ -44,7 +45,7 @@ class QuoteRequestController extends Controller
                 }
                 if (config('portfolio.customer_receipt_enabled')) {
                     try {
-                        Mail::to($quote->email)->send(new CustomerQuoteConfirmation($quote, config('portfolio.frontend_url').'/ugyfel/projekt#'.$portalToken));
+                        Mail::to($quote->email)->send(new CustomerQuoteConfirmation($quote, \App\Support\MailText::frontendLink('/ugyfel/projekt', $portalToken, $quote)));
                     } catch (\Throwable $exception) {
                         // A request already stored must not be submitted again because SMTP failed.
                         Log::error('Customer quote receipt failed', ['quote_id' => $quote->id, 'exception_type' => $exception::class]);

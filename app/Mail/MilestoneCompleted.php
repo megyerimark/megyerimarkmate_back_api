@@ -15,12 +15,16 @@ class MilestoneCompleted extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public QuoteRequest $quote, public ProjectMilestone $milestone, public int $done, public int $total, public string $portalUrl) {}
+    public function __construct(public QuoteRequest $quote, public ProjectMilestone $milestone, public int $done, public int $total, public string $portalUrl)
+    {
+        // A levél nyelve: az ügyfél nyelve (az admin példányok mindig magyarul).
+        $this->locale(\App\Support\MailText::langOf($quote));
+    }
 
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Haladás a projekteden: „'.$this->milestone->title.'” elkészült – Megyeri Márk Máté',
+            subject: mt('Haladás a projekteden: „:title” elkészült – Megyeri Márk Máté', ['title' => $this->milestone->title]),
             replyTo: array_filter([config('portfolio.admin_email')]),
         );
     }

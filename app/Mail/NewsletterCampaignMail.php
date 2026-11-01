@@ -20,7 +20,11 @@ class NewsletterCampaignMail extends Mailable
         public ?string $buttonUrl,
         public string $unsubscribeUrl,
         public bool $isTest = false,
-    ) {}
+    )
+    {
+        // A levél nyelve: az ügyfél nyelve (az admin példányok mindig magyarul).
+        $this->locale('hu');
+    }
 
     public function envelope(): Envelope
     {

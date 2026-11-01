@@ -13,7 +13,11 @@ class NewQuoteNotification extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public QuoteRequest $quote) {}
+    public function __construct(public QuoteRequest $quote)
+    {
+        // A levél nyelve: az ügyfél nyelve (az admin példányok mindig magyarul).
+        $this->locale('hu');
+    }
 
     public function envelope(): Envelope
     {

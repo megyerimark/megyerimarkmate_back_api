@@ -14,12 +14,16 @@ class ReviewRequest extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public QuoteRequest $quote, public string $reviewUrl) {}
+    public function __construct(public QuoteRequest $quote, public string $reviewUrl)
+    {
+        // A levél nyelve: az ügyfél nyelve (az admin példányok mindig magyarul).
+        $this->locale(\App\Support\MailText::langOf($quote));
+    }
 
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Hogy vagy elégedett az új weboldaladdal? – Megyeri Márk Máté',
+            subject: mt('Hogy vagy elégedett az új weboldaladdal? – Megyeri Márk Máté'),
             replyTo: array_filter([config('portfolio.admin_email')]),
         );
     }

@@ -52,7 +52,7 @@ class NewsletterController extends Controller
         $subscriber->save();
 
         if (\App\Support\Mailer::canSend()) {
-            $link = config('portfolio.frontend_url').'/hirlevel/megerosites#'.$token;
+            $link = \App\Support\MailText::frontendLink('/hirlevel/megerosites', $token, $subscriber);
             \Illuminate\Support\defer(function () use ($subscriber, $link) {
                 try {
                     Mail::to($subscriber->email)->send(new NewsletterConfirmation($subscriber, $link));

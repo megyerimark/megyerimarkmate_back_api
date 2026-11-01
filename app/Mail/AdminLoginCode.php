@@ -12,7 +12,11 @@ class AdminLoginCode extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public string $adminName, public string $code) {}
+    public function __construct(public string $adminName, public string $code)
+    {
+        // A levél nyelve: az ügyfél nyelve (az admin példányok mindig magyarul).
+        $this->locale('hu');
+    }
 
     public function envelope(): Envelope
     {

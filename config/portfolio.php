@@ -21,12 +21,12 @@ return [
         '/adatkezeles' => '/en/privacy-policy',
         '/impresszum' => '/en/legal-notice',
         '/aszf' => '/en/terms',
-        // Útmutatók (csak magyarul).
-        '/utmutatok' => null,
-        '/utmutatok/mennyibe-kerul-egy-weboldal' => null,
-        '/utmutatok/landing-oldal-vagy-ceges-weboldal' => null,
-        '/utmutatok/weboldal-keszites-lepesei' => null,
-        '/utmutatok/gyors-es-keresobarat-weboldal' => null,
+        // Útmutatók (magyarul és angolul).
+        '/utmutatok' => '/en/guides',
+        '/utmutatok/mennyibe-kerul-egy-weboldal' => '/en/guides/how-much-does-a-website-cost',
+        '/utmutatok/landing-oldal-vagy-ceges-weboldal' => '/en/guides/landing-page-vs-business-website',
+        '/utmutatok/weboldal-keszites-lepesei' => '/en/guides/website-development-steps',
+        '/utmutatok/gyors-es-keresobarat-weboldal' => '/en/guides/fast-seo-friendly-website',
     ],
     'mail_enabled' => filter_var(env('PORTFOLIO_MAIL_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
     'customer_receipt_enabled' => filter_var(env('PORTFOLIO_CUSTOMER_RECEIPT_ENABLED', true), FILTER_VALIDATE_BOOLEAN),

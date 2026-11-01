@@ -32,6 +32,6 @@ class ClientAccess
             $quote->portal_token_expires_at = now()->addDays(config('portfolio.client_access_days'));
             $quote->save();
         }
-        return config('portfolio.frontend_url').'/ugyfel/projekt#'.$token;
+        return MailText::frontendLink('/ugyfel/projekt', $token, $quote);
     }
 }

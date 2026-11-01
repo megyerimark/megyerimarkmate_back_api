@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ConsultationBooking extends Model
 {
-    protected $fillable = ['consultation_slot_id', 'customer_name', 'email', 'phone', 'notes', 'privacy_notice_acknowledged_at'];
+    protected $fillable = ['consultation_slot_id', 'customer_name', 'email', 'phone', 'notes', 'privacy_notice_acknowledged_at', 'lang'];
     /** A kezelőlink kulcsa sosem kerül API-válaszba. */
     protected $hidden = ['manage_token_hash', 'manage_token_encrypted'];
 
@@ -22,7 +22,7 @@ class ConsultationBooking extends Model
             $token = bin2hex(random_bytes(32));
             $this->forceFill(['manage_token_hash' => hash('sha256', $token), 'manage_token_encrypted' => \Illuminate\Support\Facades\Crypt::encryptString($token)])->save();
         }
-        return rtrim((string) config('portfolio.frontend_url'), '/').'/konzultacio/foglalasom#'.$token;
+        return \App\Support\MailText::frontendLink('/konzultacio/foglalasom', $token, $this);
     }
 
     public static function byManageToken(string $token): self

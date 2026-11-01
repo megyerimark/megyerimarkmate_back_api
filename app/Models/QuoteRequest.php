@@ -16,7 +16,7 @@ class QuoteRequest extends Model
         'customer_name', 'email', 'phone', 'company_name', 'website_type',
         'design_style', 'industry', 'layout_style', 'font_style', 'colors', 'features', 'inspiration_urls',
         'budget_range', 'desired_deadline', 'project_description', 'wants_maintenance', 'consultation_preference',
-        'source', 'utm_source', 'utm_medium', 'utm_campaign', 'referrer_host', 'landing_path',
+        'source', 'utm_source', 'utm_medium', 'utm_campaign', 'referrer_host', 'landing_path', 'lang',
     ];
 
     protected $hidden = ['portal_token_hash', 'portal_token_encrypted', 'deposit_checkout_url', 'final_checkout_url'];

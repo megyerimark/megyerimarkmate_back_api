@@ -13,12 +13,16 @@ class ProposalReady extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public QuoteRequest $quote, public string $portalUrl) {}
+    public function __construct(public QuoteRequest $quote, public string $portalUrl)
+    {
+        // A levél nyelve: az ügyfél nyelve (az admin példányok mindig magyarul).
+        $this->locale(\App\Support\MailText::langOf($quote));
+    }
 
     public function envelope(): Envelope
     {
         // Az ügyfél válasza a saját postafiókomba érkezik (akkor is, ha a feladó noreply-cím).
-        return new Envelope(subject: 'Elkészült az egyedi ajánlatod (#'.$this->quote->id.') – Megyeri Márk Máté', replyTo: array_filter([config('portfolio.admin_email')]));
+        return new Envelope(subject: mt('Elkészült az egyedi ajánlatod (#:id) – Megyeri Márk Máté', ['id' => $this->quote->id]), replyTo: array_filter([config('portfolio.admin_email')]));
     }
 
     public function content(): Content

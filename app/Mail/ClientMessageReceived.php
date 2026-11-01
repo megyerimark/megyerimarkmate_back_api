@@ -14,7 +14,11 @@ class ClientMessageReceived extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public QuoteRequest $quote, public ProjectMessage $projectMessage, public string $adminUrl) {}
+    public function __construct(public QuoteRequest $quote, public ProjectMessage $projectMessage, public string $adminUrl)
+    {
+        // A levél nyelve: az ügyfél nyelve (az admin példányok mindig magyarul).
+        $this->locale('hu');
+    }
 
     public function envelope(): Envelope
     {
