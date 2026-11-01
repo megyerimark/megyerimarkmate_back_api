@@ -37,7 +37,7 @@ class AutomatedMailsTest extends TestCase
         $due = $this->booking(20, 72);
         $this->booking(60, 72);          // még messze van
         $this->booking(1, 72);           // túl közel (2 órán belül)
-        $this->booking(21, 3);           // most foglalta – épp megkapta a visszaigazolást (más időpont: a starts_at egyedi)
+        $this->booking(21, 1);           // most foglalta – épp megkapta a visszaigazolást (más időpont: a starts_at egyedi)
 
         $this->artisan('portfolio:consultation-reminders')->assertSuccessful();
         Mail::assertSent(ConsultationReminder::class, 1);
