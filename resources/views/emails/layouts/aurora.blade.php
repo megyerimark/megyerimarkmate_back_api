@@ -11,8 +11,8 @@
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td width="53" valign="top"><table role="presentation" cellpadding="0" cellspacing="0" style="border-radius:12px;background:#0f1627;border:1px solid #2a3a66;"><tr><td style="color:#ffffff;font-size:21px;font-weight:800;letter-spacing:-1px;text-align:center;width:44px;height:44px;">M<span style="color:#00d9ff;">.</span></td></tr></table></td><td style="padding-left:12px;color:#ffffff;font-size:15px;font-weight:bold;line-height:20px;letter-spacing:1px;">MEGYERI MÁRK MÁTÉ<br><span style="font-size:10px;letter-spacing:2.4px;color:#8c98b4;font-weight:normal;">WEBFEJLESZTÉS · DIGITÁLIS RENDSZEREK</span></td></tr></table>
 </td></tr>
 @sectionMissing('nohero')
-{{-- A márka 3D identitása: a kristályszikla (JPG, hogy minden levelezőprogram megjelenítse; a szöveg nélküle is teljes). --}}
-<tr><td style="padding:4px 34px 6px;"><img src="https://megyerimarkmate.hu/brand/email-hero.jpg" width="532" height="151" alt="Megyeri Márk Máté – webfejlesztés" style="display:block;width:100%;max-width:532px;height:auto;border:0;border-radius:14px;background:#0b1222;color:#8fb0ff;font-size:13px;line-height:151px;text-align:center;"></td></tr>
+{{-- A márka 3D identitása: a kristályszikla. A levélbe ágyazva (CID) megy ki, így nem függ attól, hogy a weboldalra fel van-e töltve; előnézetben a webes példány látszik. --}}
+<tr><td style="padding:4px 34px 6px;"><img src="{{ isset($message) && method_exists($message, 'embed') ? $message->embed(resource_path('images/email-hero.jpg')) : 'https://megyerimarkmate.hu/brand/email-hero.jpg' }}" width="532" height="151" alt="Megyeri Márk Máté – webfejlesztés" style="display:block;width:100%;max-width:532px;height:auto;border:0;border-radius:14px;background:#0b1222;color:#8fb0ff;font-size:13px;line-height:151px;text-align:center;"></td></tr>
 @endif
 <tr><td style="padding:14px 34px 38px;">
 <p style="font-size:11px;letter-spacing:2.6px;font-weight:bold;color:#6f8bff;margin:0 0 14px;">@yield('eyebrow','MEGYERI / AUTOMATIKUS ÉRTESÍTÉS')</p>
