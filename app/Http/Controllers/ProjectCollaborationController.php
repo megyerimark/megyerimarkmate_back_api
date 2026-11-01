@@ -73,6 +73,25 @@ class ProjectCollaborationController extends Controller
         });
     }
 
+    /** E-mail az ügyfélnek, ha üzenetet írok neki – projektenként legfeljebb 10 percenként egy, a válasz után küldve. */
+    private function notifyClient(QuoteRequest $quote, \App\Models\ProjectMessage $message): void
+    {
+        if (! $quote->email || ! \App\Support\Mailer::canSend()) {
+            return;
+        }
+        if (! Cache::add('admin-message-mail:'.$quote->id, true, now()->addMinutes(10))) {
+            return;
+        }
+        $url = \App\Support\ClientAccess::portalUrl($quote);
+        \Illuminate\Support\defer(function () use ($quote, $message, $url) {
+            try {
+                Mail::to($quote->email)->send(new \App\Mail\ProjectMessageForClient($quote, $message, $url));
+            } catch (\Throwable $exception) {
+                Log::error('Client message mail failed', ['quote_id' => $quote->id, 'exception_type' => $exception::class]);
+            }
+        });
+    }
+
     public function clientDownload(Request $request, ProjectDocument $document): StreamedResponse
     {
         $quote = $this->clientQuote($request);
@@ -102,6 +121,7 @@ class ProjectCollaborationController extends Controller
         $message = $quoteRequest->messages()->create(['author' => 'admin', 'body' => trim($data['body'])]);
         $quoteRequest->markFirstResponse();
         AdminAudit::record($request, 'project_message_sent', 'quote_request', $quoteRequest->id);
+        $this->notifyClient($quoteRequest, $message);
         return response()->json(['data' => $message], 201);
     }
 

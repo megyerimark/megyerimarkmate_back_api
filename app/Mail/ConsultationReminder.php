@@ -35,6 +35,8 @@ class ConsultationReminder extends Mailable
             'end' => $start->copy()->addMinutes((int) $this->booking->slot->duration_minutes),
             'googleUrl' => ConsultationCalendar::googleUrl($this->booking),
             'dayWord' => $this->dayWord(),
+            'manageUrl' => $this->booking->manageUrl(),
+            'meetingUrl' => \App\Models\AdminSetting::consultation()['meeting_url'],
         ]);
     }
 

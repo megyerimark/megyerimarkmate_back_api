@@ -51,4 +51,18 @@ class AdminConsultationController extends Controller
         AdminAudit::record($request, 'consultation_slot_deleted', 'consultation_slot', $consultationSlot->id);
         return response()->json(['message' => 'Időpont törölve.']);
     }
+
+    /** Konzultációs beállítások (privát): állandó videóhívás-link. */
+    public function settings(): JsonResponse
+    {
+        return response()->json(['data' => \App\Models\AdminSetting::consultation()]);
+    }
+
+    public function updateSettings(Request $request): JsonResponse
+    {
+        $data = $request->validate(['meeting_url' => ['nullable', 'url:https', 'max:500']]);
+        \App\Models\AdminSetting::updateOrCreate(['key' => 'consultation'], ['value' => ['meeting_url' => $data['meeting_url'] ?? null]]);
+        AdminAudit::record($request, 'consultation_settings_updated', 'admin_setting', null);
+        return response()->json(['data' => \App\Models\AdminSetting::consultation(), 'message' => 'Mentve.']);
+    }
 }

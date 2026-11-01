@@ -159,15 +159,7 @@ class AdminQuoteRequestController extends Controller
      */
     private function portalUrl(QuoteRequest $quoteRequest): string
     {
-        $token = $quoteRequest->portal_token_encrypted ? Crypt::decryptString($quoteRequest->portal_token_encrypted) : null;
-        if (! $token || ! $quoteRequest->portal_token_expires_at || $quoteRequest->portal_token_expires_at->isPast()) {
-            $token = bin2hex(random_bytes(32));
-            $quoteRequest->portal_token_hash = hash('sha256', $token);
-            $quoteRequest->portal_token_encrypted = Crypt::encryptString($token);
-            $quoteRequest->portal_token_expires_at = now()->addDays(config('portfolio.client_access_days'));
-            $quoteRequest->save();
-        }
-        return config('portfolio.frontend_url').'/ugyfel/projekt#'.$token;
+        return \App\Support\ClientAccess::portalUrl($quoteRequest);
     }
 
     /**

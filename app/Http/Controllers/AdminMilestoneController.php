@@ -43,8 +43,13 @@ class AdminMilestoneController extends Controller
         abort_unless($milestone->quote_request_id === $quoteRequest->id, 404);
         $data = $request->validate($this->rules());
         if (! $data) return response()->json(['message' => 'Nincs változtatás.'], 422);
+        $wasDone = $milestone->status === 'done';
         $milestone->update($data);
         AdminAudit::record($request, 'milestone_updated', 'quote_request', $quoteRequest->id);
+        // Haladásjelentés az ügyfélnek, ha a mérföldkő most lett kész (a mérföldkövek csak elfogadott ajánlatnál láthatók).
+        if (! $wasDone && $milestone->status === 'done' && $quoteRequest->proposal_accepted_at && $request->boolean('notify_client', true)) {
+            $this->notifyClient($quoteRequest, $milestone);
+        }
         return response()->json(['data' => $milestone->fresh()]);
     }
 
@@ -54,5 +59,22 @@ class AdminMilestoneController extends Controller
         $milestone->delete();
         AdminAudit::record($request, 'milestone_deleted', 'quote_request', $quoteRequest->id);
         return response()->json(['message' => 'Mérföldkő törölve.']);
+    }
+
+    private function notifyClient(QuoteRequest $quote, ProjectMilestone $milestone): void
+    {
+        if (! $quote->email || ! \App\Support\Mailer::canSend()) {
+            return;
+        }
+        $total = $quote->milestones()->count();
+        $done = $quote->milestones()->where('status', 'done')->count();
+        $url = \App\Support\ClientAccess::portalUrl($quote);
+        \Illuminate\Support\defer(function () use ($quote, $milestone, $done, $total, $url) {
+            try {
+                \Illuminate\Support\Facades\Mail::to($quote->email)->send(new \App\Mail\MilestoneCompleted($quote, $milestone, $done, $total, $url));
+            } catch (\Throwable $exception) {
+                \Illuminate\Support\Facades\Log::error('Milestone mail failed', ['quote_id' => $quote->id, 'exception_type' => $exception::class]);
+            }
+        });
     }
 }
