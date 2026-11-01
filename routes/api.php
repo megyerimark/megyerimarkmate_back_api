@@ -119,6 +119,9 @@ Route::middleware(['auth:sanctum', 'can:access-admin', 'admin.2fa'])->prefix('ad
     Route::put('/finance/settings', [AdminFinanceController::class, 'updateSettings'])->middleware('throttle:20,1,put--finance-settings');
     Route::put('/vault', [AdminClientSiteController::class, 'saveVault'])->middleware('throttle:5,1,put--vault');
     Route::get('/exports/quote-requests', [AdminQuoteRequestController::class, 'export'])->middleware('throttle:10,1,get--exports-quote-requests');
+    Route::get('/newsletter/campaigns', [\App\Http\Controllers\AdminNewsletterCampaignController::class, 'index']);
+    Route::post('/newsletter/campaigns/test', [\App\Http\Controllers\AdminNewsletterCampaignController::class, 'test'])->middleware('throttle:10,1,post--newsletter-campaigns-test');
+    Route::post('/newsletter/campaigns', [\App\Http\Controllers\AdminNewsletterCampaignController::class, 'send'])->middleware('throttle:3,60,post--newsletter-campaigns');
     Route::get('/newsletter', [\App\Http\Controllers\AdminNewsletterController::class, 'index']);
     Route::delete('/newsletter/{subscriber}', [\App\Http\Controllers\AdminNewsletterController::class, 'destroy']);
     Route::get('/exports/newsletter', [\App\Http\Controllers\AdminNewsletterController::class, 'export'])->middleware('throttle:10,1,get--exports-newsletter');
