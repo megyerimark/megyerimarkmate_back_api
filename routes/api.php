@@ -99,6 +99,10 @@ Route::middleware(['auth:sanctum', 'can:access-admin', 'admin.2fa'])->prefix('ad
     Route::get('/clients', [AdminDashboardController::class, 'clients']);
     Route::get('/clients/quotes', [AdminDashboardController::class, 'clientQuotes']);
     Route::get('/activities', [AdminDashboardController::class, 'activities']);
+    Route::get('/proposal-templates', [\App\Http\Controllers\AdminProposalTemplateController::class, 'index']);
+    Route::post('/proposal-templates', [\App\Http\Controllers\AdminProposalTemplateController::class, 'store']);
+    Route::patch('/proposal-templates/{proposalTemplate}', [\App\Http\Controllers\AdminProposalTemplateController::class, 'update']);
+    Route::delete('/proposal-templates/{proposalTemplate}', [\App\Http\Controllers\AdminProposalTemplateController::class, 'destroy']);
     Route::get('/consultation-settings', [AdminConsultationController::class, 'settings']);
     Route::put('/consultation-settings', [AdminConsultationController::class, 'updateSettings']);
     Route::get('/consultations', [AdminConsultationController::class, 'index']);
