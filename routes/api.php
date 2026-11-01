@@ -62,6 +62,10 @@ Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle'])
     ->withoutMiddleware([EnsureFrontendRequestsAreStateful::class])->middleware('throttle:300,1,post--stripe-webhook');
 Route::get('/consultations/available', [ConsultationController::class, 'available'])->middleware('throttle:40,1,get--consultations-available');
 Route::post('/consultations/book', [ConsultationController::class, 'book'])->middleware(['throttle:5,1,post--consultations-book', 'turnstile']);
+// Önkiszolgálás a levélben kapott személyes linkkel (lemondás / átfoglalás).
+Route::post('/consultations/manage', [\App\Http\Controllers\ConsultationManageController::class, 'show'])->middleware('throttle:30,1,post--consultations-manage');
+Route::post('/consultations/manage/cancel', [\App\Http\Controllers\ConsultationManageController::class, 'cancel'])->middleware('throttle:5,1,post--consultations-manage-cancel');
+Route::post('/consultations/manage/reschedule', [\App\Http\Controllers\ConsultationManageController::class, 'reschedule'])->middleware('throttle:5,1,post--consultations-manage-reschedule');
 
 Route::middleware(['auth:sanctum', 'can:access-admin', 'admin.2fa'])->prefix('admin')->group(function () {
     Route::get('/me', fn (Request $request) => response()->json([
@@ -95,6 +99,8 @@ Route::middleware(['auth:sanctum', 'can:access-admin', 'admin.2fa'])->prefix('ad
     Route::get('/clients', [AdminDashboardController::class, 'clients']);
     Route::get('/clients/quotes', [AdminDashboardController::class, 'clientQuotes']);
     Route::get('/activities', [AdminDashboardController::class, 'activities']);
+    Route::get('/consultation-settings', [AdminConsultationController::class, 'settings']);
+    Route::put('/consultation-settings', [AdminConsultationController::class, 'updateSettings']);
     Route::get('/consultations', [AdminConsultationController::class, 'index']);
     Route::post('/consultations', [AdminConsultationController::class, 'store']);
     Route::delete('/consultations/{consultationSlot}', [AdminConsultationController::class, 'destroy']);

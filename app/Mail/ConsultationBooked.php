@@ -16,7 +16,8 @@ class ConsultationBooked extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public ConsultationBooking $booking, public bool $forClient) {}
+    /** @param bool $changed Az ügyfél a kezelőlinkkel módosította az időpontot. */
+    public function __construct(public ConsultationBooking $booking, public bool $forClient, public bool $changed = false) {}
 
     public function envelope(): Envelope
     {
@@ -26,9 +27,12 @@ class ConsultationBooked extends Mailable
             : [new Address($this->booking->email, $this->booking->customer_name)];
         $when = $this->booking->slot->starts_at->copy()->timezone('Europe/Budapest')->format('Y. m. d. H:i');
         return new Envelope(
-            subject: $this->forClient
-                ? 'Visszaigazolás: konzultáció '.$when.' – Megyeri Márk Máté'
-                : 'Új konzultációfoglalás: '.$this->booking->customer_name.' – '.$when,
+            subject: match (true) {
+                $this->forClient && $this->changed => 'Módosított időpont: konzultáció '.$when.' – Megyeri Márk Máté',
+                $this->forClient => 'Visszaigazolás: konzultáció '.$when.' – Megyeri Márk Máté',
+                $this->changed => 'Konzultáció átfoglalva: '.$this->booking->customer_name.' – '.$when,
+                default => 'Új konzultációfoglalás: '.$this->booking->customer_name.' – '.$when,
+            },
             replyTo: $replyTo,
         );
     }
@@ -39,6 +43,9 @@ class ConsultationBooked extends Mailable
             'start' => $this->booking->slot->starts_at->copy()->timezone('Europe/Budapest')->locale('hu'),
             'end' => $this->booking->slot->starts_at->copy()->timezone('Europe/Budapest')->addMinutes((int) $this->booking->slot->duration_minutes),
             'googleUrl' => ConsultationCalendar::googleUrl($this->booking),
+            // A kezelőlink csak az ügyfél példányában szerepel (az adminpéldány továbbítható).
+            'manageUrl' => $this->forClient ? $this->booking->manageUrl() : null,
+            'meetingUrl' => \App\Models\AdminSetting::consultation()['meeting_url'],
         ]);
     }
 

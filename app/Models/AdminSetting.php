@@ -43,4 +43,11 @@ class AdminSetting extends Model
         $stored = static::find('finance')?->value ?? [];
         return array_merge(static::financeDefaults(), array_intersect_key($stored, static::financeDefaults()));
     }
+
+    /** Konzultáció: állandó videóhívás-link (Google Meet, Jitsi, Zoom…) – csak a foglalóknak küldött levelekben jelenik meg. */
+    public static function consultation(): array
+    {
+        $stored = static::find('consultation')?->value ?? [];
+        return ['meeting_url' => is_string($stored['meeting_url'] ?? null) && $stored['meeting_url'] !== '' ? $stored['meeting_url'] : null];
+    }
 }

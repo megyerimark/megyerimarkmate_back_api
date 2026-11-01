@@ -16,10 +16,17 @@ class ConsultationCalendar
         return 'Konzultáció – Megyeri Márk Máté';
     }
 
+    public static function meetingUrl(): ?string
+    {
+        return \App\Models\AdminSetting::consultation()['meeting_url'];
+    }
+
     public static function description(ConsultationBooking $booking): string
     {
-        return 'Konzultációs időpont (#'.$booking->id.'). A találkozó módját (online vagy telefon) e-mailben egyeztetjük. '
-            .'Módosítás vagy lemondás: válaszolj a visszaigazoló e-mailre.';
+        $meeting = self::meetingUrl();
+        return 'Konzultációs időpont (#'.$booking->id.'). '
+            .($meeting ? 'Videóhívás: '.$meeting.' ' : 'A találkozó módját (online vagy telefon) e-mailben egyeztetjük. ')
+            .'Módosítás vagy lemondás: a visszaigazoló e-mailben kapott személyes linkkel.';
     }
 
     public static function start(ConsultationBooking $booking): CarbonInterface
@@ -49,6 +56,7 @@ class ConsultationCalendar
             'DTEND:'.$fmt(self::end($booking)),
             'SUMMARY:'.self::escape(self::title()),
             'DESCRIPTION:'.self::escape(self::description($booking)),
+            ...(self::meetingUrl() ? ['LOCATION:'.self::escape(self::meetingUrl()), 'URL:'.self::meetingUrl()] : []),
             'STATUS:CONFIRMED',
             'BEGIN:VALARM',
             'TRIGGER:-PT30M',
@@ -69,7 +77,7 @@ class ConsultationCalendar
             'text' => self::title(),
             'dates' => $fmt(self::start($booking)).'/'.$fmt(self::end($booking)),
             'details' => self::description($booking),
-        ]);
+        ] + (self::meetingUrl() ? ['location' => self::meetingUrl()] : []));
     }
 
     private static function escape(string $value): string
