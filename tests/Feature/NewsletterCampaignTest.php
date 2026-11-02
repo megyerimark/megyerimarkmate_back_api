@@ -37,8 +37,9 @@ class NewsletterCampaignTest extends TestCase
 
     private function payload(array $extra = []): array
     {
-        return ['subject' => 'Őszi akció', 'body' => "Szia!\n\n- Új útmutatók\n- 15% kedvezmény", 'audience' => 'all',
-            'button_text' => 'Megnézem', 'button_url' => 'https://megyerimarkmate.hu/utmutatok'] + $extra;
+        // array_merge: a tesztenkénti értékek felülírják az alapértékeket (a „+” operátornál az alapérték nyerne).
+        return array_merge(['subject' => 'Őszi akció', 'body' => "Szia!\n\n- Új útmutatók\n- 15% kedvezmény", 'audience' => 'all',
+            'button_text' => 'Megnézem', 'button_url' => 'https://megyerimarkmate.hu/utmutatok'], $extra);
     }
 
     public function test_only_confirmed_subscribers_get_the_campaign_with_their_own_unsubscribe_link(): void
