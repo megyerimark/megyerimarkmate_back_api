@@ -10,7 +10,7 @@ class SiteEvent extends Model
     public $timestamps = false;
     protected $fillable = ['event', 'path', 'source'];
 
-    public const EVENTS = ['page_view', 'cta_click', 'quote_start', 'quiz_start', 'consultation_start'];
+    public const EVENTS = ['page_view', 'cta_click', 'quote_start', 'quiz_start', 'consultation_start', 'phone_click', 'email_click'];
 
     protected function casts(): array
     {
