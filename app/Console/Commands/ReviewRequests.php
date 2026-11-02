@@ -36,7 +36,7 @@ class ReviewRequests extends Command
                 $quote->forceFill(['review_requested_at' => now()])->save();
                 $sent++;
             } catch (Throwable $e) {
-                Log::error('Review request failed', ['quote_id' => $quote->id, 'exception_type' => $e::class]);
+                Log::error('Review request failed', ['quote_id' => $quote->id, 'exception_type' => $e::class, 'error' => \App\Support\Mailer::describe($e)]);
             }
         }
         $this->info($sent.' értékeléskérés elküldve.');

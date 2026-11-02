@@ -66,7 +66,7 @@ class ConsultationController extends Controller
                     try {
                         Mail::to($email)->send(new ConsultationBooked($booking, $forClient));
                     } catch (\Throwable $exception) {
-                        Log::error('Consultation confirmation failed', ['booking_id' => $booking->id, 'exception_type' => $exception::class]);
+                        Log::error('Consultation confirmation failed', ['booking_id' => $booking->id, 'exception_type' => $exception::class, 'error' => \App\Support\Mailer::describe($exception)]);
                     }
                 }
             });

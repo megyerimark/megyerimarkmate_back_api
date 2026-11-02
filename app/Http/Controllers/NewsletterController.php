@@ -57,7 +57,7 @@ class NewsletterController extends Controller
                 try {
                     Mail::to($subscriber->email)->send(new NewsletterConfirmation($subscriber, $link));
                 } catch (\Throwable $e) {
-                    Log::error('Newsletter confirmation failed', ['subscriber_id' => $subscriber->id, 'exception_type' => $e::class]);
+                    Log::error('Newsletter confirmation failed', ['subscriber_id' => $subscriber->id, 'exception_type' => $e::class, 'error' => \App\Support\Mailer::describe($e)]);
                 }
             });
         }

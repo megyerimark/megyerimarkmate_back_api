@@ -38,7 +38,7 @@ class VerifyTurnstile
             ])->json();
         } catch (\Throwable $e) {
             // Zárt hibakezelés: ha az ellenőrzés nem elérhető, nem engedjük át a kérést.
-            Log::warning('Turnstile verification unavailable', ['exception_type' => $e::class]);
+            Log::warning('Turnstile verification unavailable', ['exception_type' => $e::class, 'error' => \App\Support\Mailer::describe($e)]);
             return $this->reject();
         }
 

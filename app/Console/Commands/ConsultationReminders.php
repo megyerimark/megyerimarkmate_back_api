@@ -39,7 +39,7 @@ class ConsultationReminders extends Command
                 $booking->forceFill(['reminder_sent_at' => now()])->save();
                 $sent++;
             } catch (Throwable $e) {
-                Log::error('Consultation reminder failed', ['booking_id' => $booking->id, 'exception_type' => $e::class]);
+                Log::error('Consultation reminder failed', ['booking_id' => $booking->id, 'exception_type' => $e::class, 'error' => \App\Support\Mailer::describe($e)]);
             }
         }
         $this->info($sent.' emlékeztető elküldve.');

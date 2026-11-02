@@ -22,7 +22,15 @@ class MailText
     {
         $text = $hu;
         if (self::isEnglish()) {
-            self::$en ??= require resource_path('mail-lang/en.php');
+            if (self::$en === null) {
+                // A hiányzó fájl (pl. hiányos feltöltés) ne akassza meg a levelet: magyar szöveg + figyelmeztetés a naplóban.
+                $file = resource_path('mail-lang/en.php');
+                $loaded = is_file($file) ? require $file : null;
+                if (! is_array($loaded)) {
+                    \Illuminate\Support\Facades\Log::warning('Mail translations missing', ['file' => 'resources/mail-lang/en.php']);
+                }
+                self::$en = is_array($loaded) ? $loaded : [];
+            }
             $text = self::$en[$hu] ?? $hu;
         }
         foreach ($replace as $key => $value) {

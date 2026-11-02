@@ -177,7 +177,7 @@ class StripeWebhookController extends Controller
             try {
                 Mail::to($owner)->send(new AdminPaymentNotice($headline, $lines));
             } catch (Throwable $e) {
-                Log::error('Payment notice mail failed', ['exception_type' => $e::class]);
+                Log::error('Payment notice mail failed', ['exception_type' => $e::class, 'error' => \App\Support\Mailer::describe($e)]);
             }
         });
     }

@@ -97,7 +97,7 @@ class ConsultationManageController extends Controller
                 try {
                     Mail::to($email)->send($make($forClient));
                 } catch (\Throwable $e) {
-                    Log::error('Consultation change mail failed', ['booking_id' => $booking->id, 'exception_type' => $e::class]);
+                    Log::error('Consultation change mail failed', ['booking_id' => $booking->id, 'exception_type' => $e::class, 'error' => \App\Support\Mailer::describe($e)]);
                 }
             }
         });

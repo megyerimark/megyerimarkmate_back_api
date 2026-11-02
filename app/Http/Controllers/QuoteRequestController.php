@@ -40,7 +40,7 @@ class QuoteRequestController extends Controller
                     try {
                         Mail::to($owner)->send(new NewQuoteNotification($quote));
                     } catch (\Throwable $exception) {
-                        Log::error('Owner quote notification failed', ['quote_id' => $quote->id, 'exception_type' => $exception::class]);
+                        Log::error('Owner quote notification failed', ['quote_id' => $quote->id, 'exception_type' => $exception::class, 'error' => \App\Support\Mailer::describe($exception)]);
                     }
                 }
                 if (config('portfolio.customer_receipt_enabled')) {
@@ -48,7 +48,7 @@ class QuoteRequestController extends Controller
                         Mail::to($quote->email)->send(new CustomerQuoteConfirmation($quote, \App\Support\MailText::frontendLink('/ugyfel/projekt', $portalToken, $quote)));
                     } catch (\Throwable $exception) {
                         // A request already stored must not be submitted again because SMTP failed.
-                        Log::error('Customer quote receipt failed', ['quote_id' => $quote->id, 'exception_type' => $exception::class]);
+                        Log::error('Customer quote receipt failed', ['quote_id' => $quote->id, 'exception_type' => $exception::class, 'error' => \App\Support\Mailer::describe($exception)]);
                     }
                 }
             });
