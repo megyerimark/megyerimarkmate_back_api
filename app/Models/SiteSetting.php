@@ -12,8 +12,8 @@ class SiteSetting extends Model
     protected $keyType = 'string';
     protected $fillable = ['key', 'value'];
 
-    public const META_TITLE = 'Weboldal készítés és egyedi webfejlesztés | Megyeri Márk Máté';
-    public const META_DESCRIPTION = 'Egyedi weboldal, webshop és webes rendszer készítése vállalkozásoknak – online, itthon és külföldön. Prémium design, gyors betöltés. Kérj ajánlatot!';
+    public const META_TITLE = 'Weboldal készítés Budapesten és online | Megyeri Márk Máté';
+    public const META_DESCRIPTION = 'Egyedi weboldal, landing oldal és webshop vállalkozásoknak – Budapesten személyesen, országosan online. Gyors és mobilbarát. Kérj ajánlatot!';
 
     public const DEFAULTS = [
         'site_title' => 'Megyeri Márk | Webfejlesztés',
