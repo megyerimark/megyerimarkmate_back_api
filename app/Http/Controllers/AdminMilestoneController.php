@@ -73,7 +73,7 @@ class AdminMilestoneController extends Controller
             try {
                 \Illuminate\Support\Facades\Mail::to($quote->email)->send(new \App\Mail\MilestoneCompleted($quote, $milestone, $done, $total, $url));
             } catch (\Throwable $exception) {
-                \Illuminate\Support\Facades\Log::error('Milestone mail failed', ['quote_id' => $quote->id, 'exception_type' => $exception::class]);
+                \Illuminate\Support\Facades\Log::error('Milestone mail failed', ['quote_id' => $quote->id, 'exception_type' => $exception::class, 'error' => \App\Support\Mailer::describe($exception)]);
             }
         });
     }

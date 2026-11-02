@@ -121,7 +121,7 @@ class ClientProjectController extends Controller
                 try {
                     Mail::to($quote->email)->send(new CustomerAcceptanceConfirmation($quote, $portalUrl));
                 } catch (\Throwable $exception) {
-                    Log::error('Acceptance confirmation failed', ['quote_id' => $quote->id, 'exception_type' => $exception::class]);
+                    Log::error('Acceptance confirmation failed', ['quote_id' => $quote->id, 'exception_type' => $exception::class, 'error' => \App\Support\Mailer::describe($exception)]);
                 }
             });
         }
@@ -130,7 +130,7 @@ class ClientProjectController extends Controller
                 try {
                     Mail::to(config('portfolio.admin_email'))->send(new ProposalAccepted($quote));
                 } catch (\Throwable $exception) {
-                    Log::error('Proposal acceptance notice failed', ['quote_id' => $quote->id, 'exception_type' => $exception::class]);
+                    Log::error('Proposal acceptance notice failed', ['quote_id' => $quote->id, 'exception_type' => $exception::class, 'error' => \App\Support\Mailer::describe($exception)]);
                 }
             });
         }

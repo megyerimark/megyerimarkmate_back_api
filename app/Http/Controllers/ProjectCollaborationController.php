@@ -68,7 +68,7 @@ class ProjectCollaborationController extends Controller
             try {
                 Mail::to($owner)->send(new ClientMessageReceived($quote, $message, $url));
             } catch (\Throwable $exception) {
-                Log::error('Client message notice failed', ['quote_id' => $quote->id, 'exception_type' => $exception::class]);
+                Log::error('Client message notice failed', ['quote_id' => $quote->id, 'exception_type' => $exception::class, 'error' => \App\Support\Mailer::describe($exception)]);
             }
         });
     }
@@ -87,7 +87,7 @@ class ProjectCollaborationController extends Controller
             try {
                 Mail::to($quote->email)->send(new \App\Mail\ProjectMessageForClient($quote, $message, $url));
             } catch (\Throwable $exception) {
-                Log::error('Client message mail failed', ['quote_id' => $quote->id, 'exception_type' => $exception::class]);
+                Log::error('Client message mail failed', ['quote_id' => $quote->id, 'exception_type' => $exception::class, 'error' => \App\Support\Mailer::describe($exception)]);
             }
         });
     }

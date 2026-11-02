@@ -86,7 +86,7 @@ class AdminNewsletterCampaignController extends Controller
                         $sent++;
                     } catch (\Throwable $e) {
                         $failed++;
-                        Log::warning('Newsletter send failed', ['campaign_id' => $campaign->id, 'subscriber_id' => $subscriber->id, 'exception_type' => $e::class]);
+                        Log::warning('Newsletter send failed', ['campaign_id' => $campaign->id, 'subscriber_id' => $subscriber->id, 'exception_type' => $e::class, 'error' => \App\Support\Mailer::describe($e)]);
                     }
                 }
                 $campaign->forceFill(['sent_count' => $sent, 'failed_count' => $failed])->save();

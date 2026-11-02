@@ -49,7 +49,7 @@ class FollowUpReminders extends Command
         try {
             Mail::to($owner)->send(new FollowUpReminder($unanswered, $silent));
         } catch (Throwable $e) {
-            Log::error('Follow-up reminder failed', ['exception_type' => $e::class]);
+            Log::error('Follow-up reminder failed', ['exception_type' => $e::class, 'error' => \App\Support\Mailer::describe($e)]);
             return self::FAILURE;
         }
         QuoteRequest::whereKey($unanswered->modelKeys())->update(['reply_reminded_at' => now()]);

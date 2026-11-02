@@ -142,7 +142,7 @@ class AdminQuoteRequestController extends Controller
         try {
             Mail::to($quoteRequest->email)->send(new ProposalReady($quoteRequest, $url));
         } catch (\Throwable $exception) {
-            Log::error('Proposal delivery failed', ['quote_id' => $quoteRequest->id, 'exception_type' => $exception::class]);
+            Log::error('Proposal delivery failed', ['quote_id' => $quoteRequest->id, 'exception_type' => $exception::class, 'error' => \App\Support\Mailer::describe($exception)]);
             return response()->json(['message' => 'Az e-mail-küldés sikertelen volt. Az ajánlat állapota változatlan. Ellenőrizd az SMTP-beállításokat.'], 503);
         }
         $quoteRequest->status = 'quoted';
@@ -186,7 +186,7 @@ class AdminQuoteRequestController extends Controller
         try {
             Mail::to($quoteRequest->email)->send(new ProjectCompleted($quoteRequest, $url));
         } catch (\Throwable $exception) {
-            Log::error('Project completion mail failed', ['quote_id' => $quoteRequest->id, 'exception_type' => $exception::class]);
+            Log::error('Project completion mail failed', ['quote_id' => $quoteRequest->id, 'exception_type' => $exception::class, 'error' => \App\Support\Mailer::describe($exception)]);
             return response()->json(['message' => 'A végleges e-mail kézbesítése sikertelen volt. A projekt állapota változatlan.'], 503);
         }
         $quoteRequest->forceFill(['status' => 'completed', 'completed_at' => now(), 'final_amount_huf' => $remaining])->save();
@@ -248,7 +248,7 @@ class AdminQuoteRequestController extends Controller
         try {
             Mail::to($quoteRequest->email)->send(new ProjectHandedOver($quoteRequest, $url));
         } catch (\Throwable $exception) {
-            Log::error('Project handover mail failed', ['quote_id' => $quoteRequest->id, 'exception_type' => $exception::class]);
+            Log::error('Project handover mail failed', ['quote_id' => $quoteRequest->id, 'exception_type' => $exception::class, 'error' => \App\Support\Mailer::describe($exception)]);
             return response()->json(['message' => 'Az átadási e-mail kézbesítése sikertelen volt. Az átadás nem történt meg.'], 503);
         }
         $quoteRequest->forceFill(['handed_over_at' => now(), 'handover_note' => $quoteRequest->handover_note])->save();
@@ -266,7 +266,7 @@ class AdminQuoteRequestController extends Controller
         try {
             Mail::to($quoteRequest->email)->send(new ProjectAccessRenewed($quoteRequest, $url));
         } catch (\Throwable $exception) {
-            Log::error('Project link renewal failed', ['quote_id' => $quoteRequest->id, 'exception_type' => $exception::class]);
+            Log::error('Project link renewal failed', ['quote_id' => $quoteRequest->id, 'exception_type' => $exception::class, 'error' => \App\Support\Mailer::describe($exception)]);
             return response()->json(['message' => 'Nem sikerült kézbesíteni az új linket. A régi hozzáférés változatlan.'], 503);
         }
         $quoteRequest->portal_token_hash = hash('sha256', $token);
