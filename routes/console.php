@@ -34,3 +34,6 @@ Schedule::command('portfolio:consultation-reminders')->hourlyAt(5)->withoutOverl
 
 // Google-értékelés kérése 5 nappal a kódátadás után (egyszer, csak ha a link be van állítva).
 Schedule::command('portfolio:review-requests')->dailyAt('10:20');
+
+// Utánkövetés: napi összesítő az adminnak a megválaszolatlan megkeresésekről (2 nap) és a válasz nélküli ajánlatokról (5 nap).
+Schedule::command('portfolio:follow-up-reminders')->weekdays()->dailyAt('08:40');

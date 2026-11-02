@@ -64,6 +64,15 @@ class GrowthFeaturesTest extends TestCase
         $this->assertSame(1, SiteEvent::count());
     }
 
+    public function test_phone_and_email_clicks_are_counted_in_the_funnel(): void
+    {
+        $this->postJson('/api/events', ['event' => 'phone_click', 'path' => '/'])->assertNoContent();
+        $this->postJson('/api/events', ['event' => 'phone_click', 'path' => '/en/consultation'])->assertNoContent();
+        $this->postJson('/api/events', ['event' => 'email_click', 'path' => '/'])->assertNoContent();
+        $this->actingAs($this->admin())->getJson('/api/admin/growth')->assertOk()
+            ->assertJsonPath('data.funnel.phone_clicks', 2)->assertJsonPath('data.funnel.email_clicks', 1);
+    }
+
     public function test_quote_keeps_attribution(): void
     {
         $this->postJson('/api/quote-requests', [

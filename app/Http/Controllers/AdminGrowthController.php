@@ -33,6 +33,9 @@ class AdminGrowthController extends Controller
             'cta_clicks' => (int) ($events['cta_click'] ?? 0),
             'quote_starts' => (int) ($events['quote_start'] ?? 0) + (int) ($events['quiz_start'] ?? 0),
             'submissions' => $submissions,
+            // Közvetlen kapcsolatfelvétel: telefonszám- és e-mail-link kattintások (ezek nem jelennek meg megkeresésként).
+            'phone_clicks' => (int) ($events['phone_click'] ?? 0),
+            'email_clicks' => (int) ($events['email_click'] ?? 0),
             // Csak akkor adunk arányt, ha volt mérhető látogatás – különben a szám félrevezető lenne.
             'visit_to_lead_percent' => $homeVisits > 0 ? round($submissions / $homeVisits * 100, 1) : null,
         ];
