@@ -25,6 +25,9 @@ class AppServiceProvider extends ServiceProvider
             $model::deleted(fn () => \App\Support\PublicCache::flush());
         }
 
+        // Minden kimenő levél kap szöveges (text/plain) változatot is – kevésbé kerül a spambe.
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Mail\Events\MessageSending::class, [\App\Support\MailPlainText::class, 'handle']);
+
         Gate::define('access-admin', fn (User $user): bool => (bool) $user->is_admin);
 
         // Belépés: IP-címenként és e-mail-címenként is korlátozunk, így sok IP-ről
