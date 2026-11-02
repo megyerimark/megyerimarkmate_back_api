@@ -27,4 +27,20 @@ class EmailHeroImageTest extends TestCase
         $inline = collect($message->getAttachments())->filter(fn ($part) => str_contains((string) $part->getContentType(), 'image/jpeg'));
         $this->assertCount(1, $inline);
     }
+
+    public function test_every_mail_also_has_a_plain_text_part(): void
+    {
+        config()->set('mail.mailers.array', ['transport' => 'array']);
+        $q = new QuoteRequest(['customer_name' => 'Kiss Anna', 'email' => 'anna@example.com', 'website_type' => 'business', 'project_description' => 'Céges weboldal készítése']);
+        $q->forceFill(['privacy_notice_acknowledged_at' => now()])->save();
+
+        Mail::mailer('array')->to('anna@example.com')->send(new ProjectAccessRenewed($q, 'https://megyerimarkmate.hu/ugyfel/projekt#x'));
+
+        $message = app('mail.manager')->mailer('array')->getSymfonyTransport()->messages()->last()->getOriginalMessage();
+        $text = (string) $message->getTextBody();
+        $this->assertStringContainsString('Kedves Kiss Anna!', $text);
+        $this->assertStringContainsString('(https://megyerimarkmate.hu/ugyfel/projekt#x)', $text);
+        $this->assertStringNotContainsString('<', $text);
+        $this->assertNotEmpty($message->getHtmlBody());
+    }
 }
