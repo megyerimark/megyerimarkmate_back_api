@@ -47,6 +47,12 @@ return [
 
     // Bot-védelem (Cloudflare Turnstile). dash.cloudflare.com → Turnstile → Add widget.
     // Üres titkos kulccsal a védelem ki van kapcsolva (helyi fejlesztés, tesztek).
+    // Google-vélemények a saját Cégprofilból (Places API, új változat) – lásd App\Support\GoogleReviews.
+    'google_places' => [
+        'key' => env('GOOGLE_PLACES_API_KEY', ''),
+        'place_id' => env('GOOGLE_PLACE_ID', ''),
+    ],
+
     'turnstile' => [
         'site_key' => env('TURNSTILE_SITE_KEY'),
         'secret_key' => env('TURNSTILE_SECRET_KEY'),

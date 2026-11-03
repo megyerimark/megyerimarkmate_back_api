@@ -61,6 +61,14 @@ class PublicContentController extends Controller
         return $this->cached(['data' => $items]);
     }
 
+    /** A Google Cégprofil értékelése és legfrissebb véleményei (naponta frissül; ha nincs beállítva: data = null). */
+    public function googleReviews(): JsonResponse
+    {
+        $data = \App\Support\GoogleReviews::stored();
+        if ($data) unset($data['fetched_at']);
+        return $this->cached(['data' => $data && ($data['count'] ?? 0) > 0 ? $data : null], 600);
+    }
+
     /** Rövid böngésző-/proxy-gyorsítótár a nyilvános JSON-ra; utána háttérben frissít. */
     private function cached(array $payload, int $maxAge = 120): JsonResponse
     {

@@ -36,6 +36,7 @@ Route::withoutMiddleware([EnsureFrontendRequestsAreStateful::class])->group(func
     Route::get('/projects/{slug}', [PublicContentController::class, 'project'])->middleware('throttle:120,1,get--projects-slug');
     Route::get('/site-settings', [PublicContentController::class, 'settings'])->middleware('throttle:120,1,get--site-settings');
     Route::get('/testimonials', [PublicContentController::class, 'testimonials'])->middleware('throttle:120,1,get--testimonials');
+    Route::get('/google-reviews', [PublicContentController::class, 'googleReviews'])->middleware('throttle:120,1,get--google-reviews');
     Route::get('/sitemap.xml', [PublicContentController::class, 'sitemap'])->middleware('throttle:60,1,get--sitemap.xml');
     // Sütik és személyes adatok nélküli, aggregált eseményszámlálás.
     Route::post('/events', [PublicEventController::class, 'store'])->middleware('throttle:120,1,post--events');
