@@ -48,6 +48,16 @@ return [
     // Bot-védelem (Cloudflare Turnstile). dash.cloudflare.com → Turnstile → Add widget.
     // Üres titkos kulccsal a védelem ki van kapcsolva (helyi fejlesztés, tesztek).
     // Google-vélemények a saját Cégprofilból (Places API, új változat) – lásd App\Support\GoogleReviews.
+    // Brevo: a megerősített feliratkozók szinkronja (kontaktlista + üdvözlő sorozat listája).
+    'brevo' => [
+        'key' => env('BREVO_API_KEY', ''),
+        'list_id' => (int) env('BREVO_LIST_ID', 0),
+        // Erre a listára csak az ÚJ, a weboldalon megerősített feliratkozók kerülnek; a Brevo üdvözlő automatizálása ezt figyelje.
+        'welcome_list_id' => (int) env('BREVO_WELCOME_LIST_ID', 0),
+        // Opcionális: egy szöveges kontakt-attribútum neve a Brevóban (pl. NYELV), amibe a nyelv (hu/en) kerül.
+        'lang_attribute' => env('BREVO_LANG_ATTRIBUTE', ''),
+    ],
+
     'google_places' => [
         'key' => env('GOOGLE_PLACES_API_KEY', ''),
         'place_id' => env('GOOGLE_PLACE_ID', ''),

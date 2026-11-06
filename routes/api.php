@@ -128,6 +128,8 @@ Route::middleware(['auth:sanctum', 'can:access-admin', 'admin.2fa'])->prefix('ad
     Route::post('/newsletter/campaigns/test', [\App\Http\Controllers\AdminNewsletterCampaignController::class, 'test'])->middleware('throttle:10,1,post--newsletter-campaigns-test');
     Route::post('/newsletter/campaigns', [\App\Http\Controllers\AdminNewsletterCampaignController::class, 'send'])->middleware('throttle:3,60,post--newsletter-campaigns');
     Route::get('/newsletter', [\App\Http\Controllers\AdminNewsletterController::class, 'index']);
+    Route::post('/newsletter/brevo-sync', [\App\Http\Controllers\AdminNewsletterController::class, 'sync'])->middleware('throttle:6,1,post--newsletter-brevo-sync');
+    Route::post('/newsletter/import', [\App\Http\Controllers\AdminNewsletterController::class, 'import'])->middleware('throttle:10,1,post--newsletter-import');
     Route::delete('/newsletter/{subscriber}', [\App\Http\Controllers\AdminNewsletterController::class, 'destroy']);
     Route::get('/exports/newsletter', [\App\Http\Controllers\AdminNewsletterController::class, 'export'])->middleware('throttle:10,1,get--exports-newsletter');
     Route::post('/quote-requests/{quoteRequest}/contacted', [AdminQuoteRequestController::class, 'markContacted']);
