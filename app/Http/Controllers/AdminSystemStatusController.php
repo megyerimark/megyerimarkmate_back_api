@@ -17,7 +17,7 @@ use Throwable;
  */
 class AdminSystemStatusController extends Controller
 {
-    public const BACKEND_VERSION = 'v21';
+    public const BACKEND_VERSION = 'v22';
 
     /** Az új funkciók által igényelt táblák – ha valamelyik hiányzik, a migráció nem futott le. */
     private const REQUIRED_TABLES = [

@@ -12,7 +12,7 @@ class NewsletterSubscriber extends Model
 
     protected $fillable = ['email', 'status', 'lang', 'source', 'consent_text', 'consent_ip', 'consent_user_agent'];
     protected $hidden = ['confirm_token_hash', 'unsubscribe_token', 'consent_user_agent'];
-    protected $casts = ['confirmation_sent_at' => 'datetime', 'confirmed_at' => 'datetime', 'unsubscribed_at' => 'datetime'];
+    protected $casts = ['confirmation_sent_at' => 'datetime', 'confirmed_at' => 'datetime', 'unsubscribed_at' => 'datetime', 'brevo_synced_at' => 'datetime', 'brevo_unblock' => 'boolean'];
 
     /** Meg nem erősített feliratkozás 30 nap után törlődik (adattakarékosság). */
     public function prunable(): Builder

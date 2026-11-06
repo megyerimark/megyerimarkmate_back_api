@@ -40,3 +40,6 @@ Schedule::command('portfolio:follow-up-reminders')->weekdays()->dailyAt('08:40')
 
 // Google-vélemények frissítése a Cégprofilból (Places API) – naponta egyszer, a Google ingyenes keretén belül.
 Schedule::command('portfolio:google-reviews')->dailyAt('06:20');
+
+// Brevo: a szinkronra váró feliratkozók feltöltése és a Brevóban leiratkozottak átvezetése (ha be van állítva).
+Schedule::command('portfolio:brevo-sync')->everyTenMinutes()->withoutOverlapping();

@@ -75,7 +75,12 @@ class NewsletterController extends Controller
         $subscriber->status = 'confirmed';
         $subscriber->confirmed_at = now();
         $subscriber->confirm_token_hash = null;
+        // Az üdvözlő sorozatot csak egyszer kapja meg: aki már kapta (vagy korábbi feliratkozó), újra nem.
+        $subscriber->welcome_status ??= 'queued';
+        $subscriber->brevo_unblock = true;
+        $subscriber->brevo_synced_at = null;
         $subscriber->save();
+        \App\Support\NewsletterSync::pushLater($subscriber);
 
         return response()->json(['message' => 'Sikeres feliratkozás! Elsőként értesítelek az akciókról.', 'unsubscribe_token' => $subscriber->unsubscribe_token]);
     }
@@ -88,7 +93,10 @@ class NewsletterController extends Controller
             $subscriber->status = 'unsubscribed';
             $subscriber->unsubscribed_at = now();
             $subscriber->confirm_token_hash = null;
+            $subscriber->brevo_unblock = false;
+            $subscriber->brevo_synced_at = null;
             $subscriber->save();
+            \App\Support\NewsletterSync::pushLater($subscriber);
         }
         // Érvénytelen kulcsnál is ugyanaz a válasz – ne lehessen vele címeket próbálgatni.
         return response()->json(['message' => 'Leiratkoztál a hírlevélről. Több levelet nem küldök erre a címre.']);
